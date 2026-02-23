@@ -222,6 +222,30 @@ function AnnouncementCard({ ann }) {
   );
 }
 
+function NewsCard({ item }) {
+  return (
+    <Link to={`/news/${item.id}`}
+      className="flex gap-3 p-3 rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99]"
+      style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.15)' }}>
+      {item.imageUrl ? (
+        <img src={item.imageUrl} alt={item.title} className="w-14 h-14 object-cover rounded-xl flex-shrink-0" />
+      ) : (
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+          style={{ background: 'rgba(168,85,247,0.12)' }}>📰</div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-white text-sm font-bold leading-tight line-clamp-2">{item.title}</div>
+        {item.description && (
+          <div className="text-gray-400 text-xs mt-1 line-clamp-2">{item.description}</div>
+        )}
+        <div className="text-xs mt-1" style={{ color: '#c084fc' }}>
+          {new Date(item.createdAt).toLocaleDateString('tr-TR')}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   const { user } = useAuth();
   const { settings } = useSettings();
@@ -230,6 +254,7 @@ export default function HomePage() {
   const [rooms, setRooms] = useState([]);
   const [myRoom, setMyRoom] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
+  const [news, setNews] = useState([]);
   const [topUsers, setTopUsers] = useState([]);
   const [lockedRoom, setLockedRoom] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -246,8 +271,13 @@ export default function HomePage() {
     axios.get('/api/rooms/my').then(r => setMyRoom(r.data)).catch(() => setMyRoom(null));
   };
 
+  const fetchNews = () => {
+    axios.get('/api/news').then(r => setNews(r.data.slice(0, 2))).catch(() => {});
+  };
+
   useEffect(() => {
     fetchRooms();
+    fetchNews();
     axios.get('/api/announcements').then(r => setAnnouncements(r.data.slice(0, 3))).catch(() => {});
     axios.get('/api/top-users').then(r => {
       setTopUsers(r.data.slice(0, 3));
@@ -262,11 +292,14 @@ export default function HomePage() {
     if (!socket) return;
     const handleNewRoom = () => fetchRooms();
     const handleRoomDeleted = () => fetchRooms();
+    const handleNewNews = () => fetchNews();
     socket.on('new_room_opened', handleNewRoom);
     socket.on('room_deleted', handleRoomDeleted);
+    socket.on('new_news_published', handleNewNews);
     return () => {
       socket.off('new_room_opened', handleNewRoom);
       socket.off('room_deleted', handleRoomDeleted);
+      socket.off('new_news_published', handleNewNews);
     };
   }, [socket]);
 
@@ -290,9 +323,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-5xl mx-auto px-4 pt-4">
+      <div className="max-w-7xl mx-auto px-4 xl:px-8 pt-4">
 
-        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] lg:gap-6 xl:gap-8 lg:items-start">
 
           {/* ── MAIN COLUMN ── */}
           <div className="space-y-4">
@@ -417,6 +450,24 @@ export default function HomePage() {
                 )}
               </div>
             </div>
+
+            {/* News */}
+            {news.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                    <span style={{ color: '#c084fc' }}>📰</span> Haberler
+                  </h2>
+                  <Link to="/news" className="text-xs px-3 py-1 rounded-full transition-colors"
+                    style={{ background: 'rgba(168,85,247,0.1)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.25)' }}>
+                    Tüm Haberler →
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {news.map(n => <NewsCard key={n.id} item={n} />)}
+                </div>
+              </div>
+            )}
 
             {/* Announcements */}
             {announcements.length > 0 && (

@@ -1,0 +1,131 @@
+You are a senior full-stack UI/UX engineer. 
+Do NOT break existing logic or backend. 
+Enhance layout responsiveness, chat system, news module, and real-time notifications.
+
+PART 1 — DESKTOP RESPONSIVE FIX (VERY IMPORTANT)
+
+Problem: On desktop the layout looks too small and centered. It must feel full-width and properly spaced.
+
+Requirements:
+1) Implement responsive layout rules:
+   - For screens > 1280px:
+     - Use max-width: 1600px
+     - Use 90–95% width container
+     - Add proper spacing between sections
+     - Use grid layout with 3-column structure where appropriate
+   - For screens > 1600px:
+     - Expand to 1800px max width
+     - Increase card spacing and scale elements slightly (1.05)
+   - Remove narrow centered look.
+
+2) Improve desktop room list layout:
+   - Active rooms should display in responsive grid (auto-fit minmax 320px)
+   - Featured section should align better with stats.
+   - Sidebar should not shrink main content too much.
+
+3) Ensure:
+   - Mobile unchanged.
+   - Tablet unchanged.
+   - Only enhance desktop view.
+
+--------------------------------------------------
+
+PART 2 — ADVANCED CHAT SYSTEM
+
+Enhance existing chat UI:
+
+1) Message bubbles:
+   - Sender alignment (left/right)
+   - Timestamp
+   - Username + avatar
+   - Readable background contrast
+
+2) Add features:
+   - Reply to message (quoted preview above input)
+   - Delete own message
+   - Clear chat (owner/admin only)
+   - Scroll to newest
+   - Unread message counter
+   - “New messages” floating indicator
+
+3) Improve input:
+   - Multiline textarea
+   - Enter to send, Shift+Enter new line
+   - Emoji support
+   - File/image upload preview (optional)
+
+4) Real-time:
+   - Messages must broadcast instantly via Socket.IO
+   - No refresh required
+
+--------------------------------------------------
+
+PART 3 — NEWS MODULE (HABERLER)
+
+Add a new module:
+
+1) Add "Haberler" inside hamburger menu.
+2) Create admin CRUD panel:
+   - Title
+   - Description
+   - Image (upload)
+   - Video URL (optional)
+   - Publish / Unpublish
+   - Delete
+3) News stored in database.
+
+4) On homepage:
+   - Place NEWS section ABOVE announcements.
+   - Show last 2 published news.
+   - Auto-update in real-time when admin posts.
+   - Add “Tüm Haberler” button.
+
+5) News cards:
+   - Image thumbnail
+   - Title
+   - Short preview
+   - Click → full news page
+
+--------------------------------------------------
+
+PART 4 — REAL-TIME LIVE NOTIFICATIONS
+
+Implement a notification system via Socket.IO.
+
+Trigger notifications when:
+- New message
+- New news published
+- New announcement
+- Room created
+- Room closed
+- User mentioned in chat
+
+Features:
+1) Bell icon with live counter badge.
+2) Dropdown notification list.
+3) Mark as read.
+4) Clear all.
+5) Toast popup (bottom right) for instant alert.
+6) Play subtle sound (respect autoplay policy).
+
+--------------------------------------------------
+
+QUALITY RULES:
+
+- Do not break existing backend sync.
+- Maintain current theme and style.
+- Keep animations smooth.
+- Keep performance optimized.
+- Ensure works on:
+  - Desktop large screens
+  - Laptop
+  - Tablet
+  - Mobile
+- Do not shrink desktop layout anymore.
+
+After implementation:
+- List modified files
+- Confirm responsive breakpoints
+- Confirm notification events wired
+
+Start implementing now.

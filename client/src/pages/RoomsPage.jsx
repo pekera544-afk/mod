@@ -239,7 +239,7 @@ export default function RoomsPage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-4xl mx-auto px-4 pt-4">
+      <div className="max-w-7xl mx-auto px-4 xl:px-8 pt-4">
 
         <div className="flex items-center gap-3 mb-4">
           <BackButton />
@@ -299,7 +299,7 @@ export default function RoomsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
             {filtered.map(r => (
               <RoomCard key={r.id} room={r} onJoinLocked={setLockedRoom} />
             ))}

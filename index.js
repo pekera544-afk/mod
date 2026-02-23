@@ -22,6 +22,7 @@ app.use('/api/settings', require('./server/routes/settings'));
 app.use('/api/auth', require('./server/routes/auth'));
 app.use('/api/rooms', require('./server/routes/rooms'));
 app.use('/api/profile', require('./server/routes/profile'));
+app.use('/api/news', require('./server/routes/news'));
 app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));
 app.use('/api/pwa', require('./server/routes/pwa'));

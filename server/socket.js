@@ -621,7 +621,7 @@ function setupSocket(io) {
       handleLeaveRoom(socket, key, io);
     });
 
-    socket.on('send_message', async ({ roomId, content }) => {
+    socket.on('send_message', async ({ roomId, content, replyToId }) => {
       if (!content || !content.trim()) return;
       if (!socket.user.id) {
         socket.emit('error', { message: 'Mesaj göndermek için giriş yapmalısınız' });
@@ -659,17 +659,62 @@ function setupSocket(io) {
           }
           spamTracker.set(spamKey, now);
         }
+
+        const msgData = {
+          roomId: Number(roomId),
+          userId: socket.user.id,
+          content: trimmed,
+          ...(replyToId ? { replyToId: Number(replyToId) } : {})
+        };
+
         const message = await prisma.message.create({
-          data: { roomId: Number(roomId), userId: socket.user.id, content: trimmed },
+          data: msgData,
           include: {
             user: {
               select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true }
+            },
+            replyTo: {
+              include: {
+                user: { select: { id: true, username: true } }
+              }
             }
           }
         });
         io.to(key).emit('new_message', message);
         await addXp(socket.user.id, XP_PER_MESSAGE, io);
+
+        const mentions = trimmed.match(/@(\w+)/g);
+        if (mentions) {
+          const uniqueMentions = [...new Set(mentions.map(m => m.slice(1).toLowerCase()))];
+          for (const username of uniqueMentions) {
+            if (username === socket.user.username?.toLowerCase()) continue;
+            try {
+              const mentionedUser = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } }, select: { id: true } });
+              if (mentionedUser && userSockets.has(mentionedUser.id)) {
+                const targetSocketId = userSockets.get(mentionedUser.id);
+                io.to(targetSocketId).emit('you_were_mentioned', {
+                  roomId: Number(roomId),
+                  roomTitle: room.ownerId ? undefined : undefined,
+                  from: socket.user.username,
+                  content: trimmed.slice(0, 80)
+                });
+              }
+            } catch {}
+          }
+        }
       } catch (err) { console.error('Message error:', err); }
+    });
+
+    socket.on('delete_own_message', async ({ roomId, messageId }) => {
+      if (!socket.user.id) return;
+      try {
+        const msg = await prisma.message.findFirst({
+          where: { id: Number(messageId), roomId: Number(roomId), userId: socket.user.id, deletedAt: null }
+        });
+        if (!msg) return;
+        await prisma.message.update({ where: { id: Number(messageId) }, data: { deletedAt: new Date() } });
+        io.to(String(roomId)).emit('message_deleted', { messageId: Number(messageId) });
+      } catch (err) { console.error('delete_own_message error:', err); }
     });
 
     socket.on('send_reaction', ({ roomId, reaction }) => {

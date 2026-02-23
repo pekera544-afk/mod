@@ -44,6 +44,7 @@ export default function Sidebar({ open, onClose }) {
   const navItems = [
     { label: '🏠 Ana Sayfa', href: '/' },
     { label: '🎬 Sinema Odaları', href: '/rooms' },
+    { label: '📰 Haberler', href: '/news' },
     { label: '📢 Duyurular', href: '/announcements' },
     { label: '👑 Sıralamalar', href: '/leaderboard' },
     { label: '💎 VIP', href: '/vip' },

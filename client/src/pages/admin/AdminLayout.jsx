@@ -9,6 +9,7 @@ const adminNav = [
   { href: '/admin/pwa', label: 'PWA Ayarları', icon: '📱' },
   { href: '/admin/users', label: 'Kullanıcılar', icon: '👥' },
   { href: '/admin/rooms', label: 'Sinema Odaları', icon: '🎬' },
+  { href: '/admin/news', label: 'Haberler', icon: '📰' },
   { href: '/admin/announcements', label: 'Duyurular', icon: '📢' },
   { href: '/admin/events', label: 'Etkinlikler', icon: '🗓️' },
   { href: '/admin/audit-log', label: 'İşlem Geçmişi', icon: '📋' }

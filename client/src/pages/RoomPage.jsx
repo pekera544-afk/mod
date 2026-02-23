@@ -13,28 +13,63 @@ import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBad
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
-function ChatMessage({ msg, onDelete, canModerate, onUserClick }) {
+function formatTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function highlightMentions(text) {
+  const parts = text.split(/(@\w+)/g);
+  return parts.map((part, i) =>
+    /^@\w+$/.test(part)
+      ? <span key={i} style={{ color: '#d4af37', fontWeight: 700 }}>{part}</span>
+      : part
+  );
+}
+
+function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canModerate, onUserClick }) {
   const usernameClass = getUsernameClass(msg.user);
   const roleInfo = getRoleLabel(msg.user);
+  const isOwn = msg.user?.id === currentUserId;
+
   return (
     <div className="flex gap-2 group py-1 px-1 rounded-lg hover:bg-white/3 fade-in-up">
       <div className="flex-shrink-0 mt-0.5">
         <UserAvatar user={msg.user} size={24} onClick={() => onUserClick && onUserClick(msg.user?.id)} />
       </div>
       <div className="flex-1 min-w-0">
+        {msg.replyTo && (
+          <div className="mb-1 px-2 py-1 rounded-lg text-xs truncate"
+            style={{ background: 'rgba(212,175,55,0.08)', borderLeft: '2px solid rgba(212,175,55,0.4)', color: '#9ca3af' }}>
+            <span style={{ color: '#d4af37' }}>@{msg.replyTo.user?.username}</span>: {msg.replyTo.content?.slice(0, 60)}
+          </div>
+        )}
         <div className="flex items-center gap-1 flex-wrap">
           {roleInfo && <span style={{ fontSize: 10, color: roleInfo.color }}>{roleInfo.icon}</span>}
           <span className={`text-xs font-semibold cursor-pointer ${usernameClass}`} onClick={() => onUserClick && onUserClick(msg.user?.id)}>
             {msg.user?.username}
           </span>
           <BadgeList badges={msg.user?.badges} size={10} />
-          {canModerate && (
-            <button onClick={() => onDelete(msg.id)}
-              className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 ml-auto transition-opacity flex-shrink-0"
-              style={{ fontSize: 10 }}>✕</button>
-          )}
+          <span className="text-gray-600 ml-auto flex-shrink-0" style={{ fontSize: 9 }}>{formatTime(msg.createdAt)}</span>
         </div>
-        <span className="text-xs text-gray-300 break-words leading-relaxed">{msg.content}</span>
+        <div className="flex items-start gap-1">
+          <span className="text-xs text-gray-300 break-words leading-relaxed flex-1">{highlightMentions(msg.content)}</span>
+          <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 flex-shrink-0 transition-opacity mt-0.5">
+            <button onClick={() => onReply && onReply(msg)}
+              className="text-gray-500 hover:text-gray-300 px-1"
+              style={{ fontSize: 10 }} title="Yanıtla">↩</button>
+            {isOwn && (
+              <button onClick={() => onDeleteOwn(msg.id)}
+                className="text-red-500 hover:text-red-300 px-1"
+                style={{ fontSize: 10 }} title="Sil">✕</button>
+            )}
+            {canModerate && !isOwn && (
+              <button onClick={() => onDelete(msg.id)}
+                className="text-red-400 hover:text-red-300 px-1"
+                style={{ fontSize: 10 }} title="Moderatör: Sil">⊘</button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -65,9 +100,13 @@ export default function RoomPage() {
   const [hostDisconnected, setHostDisconnected] = useState(false);
   const [notification, setNotification] = useState('');
   const [profileCardId, setProfileCardId] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
+  const chatScrollRef = useRef(null);
   const spamTimerRef = useRef(null);
   const roomStateRef = useRef(roomState);
 
@@ -153,7 +192,13 @@ export default function RoomPage() {
       setRoom(prev => prev ? { ...prev, streamUrl, providerType: providerType || prev.providerType } : prev);
     });
 
-    socket.on('new_message', (msg) => setMessages(prev => [...prev, msg]));
+    socket.on('new_message', (msg) => {
+      setMessages(prev => [...prev, msg]);
+      setIsAtBottom(prev => {
+        if (!prev) setUnreadCount(c => c + 1);
+        return prev;
+      });
+    });
     socket.on('participants', (list) => setParticipants(list));
     socket.on('message_deleted', ({ messageId }) =>
       setMessages(prev => prev.filter(m => m.id !== messageId)));
@@ -214,7 +259,25 @@ export default function RoomPage() {
     };
   }, [id, token, user, unlocked, room?.ownerId]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    if (isAtBottom) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isAtBottom]);
+
+  const handleChatScroll = () => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setIsAtBottom(atBottom);
+    if (atBottom) setUnreadCount(0);
+  };
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setIsAtBottom(true);
+    setUnreadCount(0);
+  };
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
 
@@ -264,10 +327,26 @@ export default function RoomPage() {
   }, []);
 
   const sendMessage = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!newMsg.trim() || !user || spamCooldown > 0 || !roomState.chatEnabled) return;
-    socketRef.current?.emit('send_message', { roomId: id, content: newMsg });
+    socketRef.current?.emit('send_message', {
+      roomId: id,
+      content: newMsg,
+      ...(replyTo ? { replyToId: replyTo.id } : {})
+    });
     setNewMsg('');
+    setReplyTo(null);
+  };
+
+  const deleteOwnMessage = (messageId) => {
+    socketRef.current?.emit('delete_own_message', { roomId: id, messageId });
+  };
+
+  const handleTextareaKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   const sendReaction = (reaction) => {
@@ -414,35 +493,81 @@ export default function RoomPage() {
           {/* Tab content */}
           <div className="flex-1 overflow-hidden min-h-0">
             {activeTab === 'chat' && (
-              <div className="flex flex-col h-full">
-                <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              <div className="flex flex-col h-full relative">
+                <div ref={chatScrollRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto p-2 space-y-0.5">
                   {!roomState.chatEnabled && (
                     <div className="text-center text-xs text-gray-500 py-3">
                       💬 Sohbet host tarafından devre dışı bırakıldı
                     </div>
                   )}
                   {messages.map(msg => (
-                    <ChatMessage key={msg.id} msg={msg} onDelete={deleteMessage} canModerate={canModerate} onUserClick={setProfileCardId} />
+                    <ChatMessage
+                      key={msg.id}
+                      msg={msg}
+                      currentUserId={user?.id}
+                      onDelete={deleteMessage}
+                      onDeleteOwn={deleteOwnMessage}
+                      onReply={setReplyTo}
+                      canModerate={canModerate}
+                      onUserClick={setProfileCardId}
+                    />
                   ))}
                   <div ref={chatEndRef} />
                 </div>
+
+                {!isAtBottom && unreadCount > 0 && (
+                  <button onClick={scrollToBottom}
+                    className="absolute bottom-[72px] left-1/2 -translate-x-1/2 z-10 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg"
+                    style={{ background: 'rgba(212,175,55,0.9)', color: '#0f0f14' }}>
+                    ↓ {unreadCount} yeni mesaj
+                  </button>
+                )}
+                {!isAtBottom && unreadCount === 0 && (
+                  <button onClick={scrollToBottom}
+                    className="absolute bottom-[72px] right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center text-xs shadow-lg"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.15)' }}>
+                    ↓
+                  </button>
+                )}
+
                 {user && roomState.chatEnabled ? (
-                  <form onSubmit={sendMessage}
-                    className="flex gap-1.5 p-2 border-t border-gold-DEFAULT/10 flex-shrink-0">
-                    <div className="flex-1 relative">
-                      <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
-                        placeholder={spamCooldown > 0 ? `${spamCooldown}s bekleyin...` : 'Mesaj yaz...'}
-                        maxLength={500} disabled={spamCooldown > 0}
-                        className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none disabled:opacity-50"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${spamCooldown > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(212,175,55,0.2)'}` }}
-                      />
-                      {spamCooldown > 0 && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-red-400 font-bold">{spamCooldown}s</div>
-                      )}
+                  <div className="border-t border-gold-DEFAULT/10 flex-shrink-0"
+                    style={{ background: 'rgba(12,12,18,0.98)' }}>
+                    {replyTo && (
+                      <div className="flex items-center gap-2 px-2 pt-1.5">
+                        <div className="flex-1 px-2 py-1 rounded-lg text-xs truncate"
+                          style={{ background: 'rgba(212,175,55,0.08)', borderLeft: '2px solid rgba(212,175,55,0.5)', color: '#9ca3af' }}>
+                          <span style={{ color: '#d4af37' }}>↩ @{replyTo.user?.username}</span>: {replyTo.content?.slice(0, 60)}
+                        </div>
+                        <button onClick={() => setReplyTo(null)} className="text-gray-500 hover:text-gray-300 text-xs flex-shrink-0">✕</button>
+                      </div>
+                    )}
+                    <div className="flex gap-1.5 p-2">
+                      <div className="flex-1 relative">
+                        <textarea
+                          value={newMsg}
+                          onChange={e => setNewMsg(e.target.value)}
+                          onKeyDown={handleTextareaKeyDown}
+                          placeholder={spamCooldown > 0 ? `${spamCooldown}s bekleyin...` : 'Mesaj yaz... (Enter gönder, Shift+Enter yeni satır)'}
+                          maxLength={500}
+                          disabled={spamCooldown > 0}
+                          rows={1}
+                          className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none disabled:opacity-50 resize-none"
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${spamCooldown > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(212,175,55,0.2)'}`,
+                            maxHeight: '80px',
+                            lineHeight: '1.4'
+                          }}
+                        />
+                        {spamCooldown > 0 && (
+                          <div className="absolute right-2 top-2 text-xs text-red-400 font-bold">{spamCooldown}s</div>
+                        )}
+                      </div>
+                      <button onClick={sendMessage} disabled={spamCooldown > 0}
+                        className="btn-gold px-3 py-2 text-sm disabled:opacity-40 flex-shrink-0 self-end">↑</button>
                     </div>
-                    <button type="submit" disabled={spamCooldown > 0}
-                      className="btn-gold px-3 py-2 text-sm disabled:opacity-40 flex-shrink-0">↑</button>
-                  </form>
+                  </div>
                 ) : !user ? (
                   <div className="p-2 border-t border-gold-DEFAULT/10 text-center text-xs text-gray-500 flex-shrink-0">
                     <Link to="/login" className="text-gold-DEFAULT hover:underline">Giriş yap</Link> ve sohbete katıl

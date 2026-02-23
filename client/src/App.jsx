@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import RoomPage from './pages/RoomPage';
 import RoomsPage from './pages/RoomsPage';
+import NewsPage from './pages/NewsPage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import VipPage from './pages/VipPage';
@@ -19,6 +20,7 @@ import AdminRooms from './pages/admin/AdminRooms';
 import AdminAnnouncements from './pages/admin/AdminAnnouncements';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
+import AdminNews from './pages/admin/AdminNews';
 
 function ProtectedAdmin({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +36,8 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomPage />} />
+        <Route path="news" element={<NewsPage />} />
+        <Route path="news/:id" element={<NewsPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="vip" element={<VipPage />} />
@@ -51,6 +55,7 @@ export default function App() {
         <Route path="announcements" element={<AdminAnnouncements />} />
         <Route path="events" element={<AdminEvents />} />
         <Route path="audit-log" element={<AdminAuditLog />} />
+        <Route path="news" element={<AdminNews />} />
       </Route>
     </Routes>
   );
