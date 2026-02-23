@@ -1,0 +1,81 @@
+You are a senior full-stack engineer. Build a production-ready “Watch Party / Sync Cinema Rooms” web app similar to watch2gether, optimized for mobile-first and working reliably on desktop/tablet/mobile (Chrome/Safari/Firefox). Use Node.js + Express + Socket.IO for realtime sync. Use a single-page frontend (React + Vite preferred) with a clean dark-gold UI similar to a “MOD CLUB” cinema rooms screen.
+
+GOALS (must be met):
+1) Each user can create ONLY ONE room at a time. They can delete it; after deletion they can create again. Prevent multiple rooms per user.
+2) Room types must exist and not break: YouTube, “Live”, “External Link” (generic URL). Each room card shows: cover image, title, description, platform badge, and optional movie name.
+3) Room can be public or password-protected. Password required to join if enabled.
+4) Room owner pastes a URL and everyone watches in sync: play/pause/seek controlled by the owner and mirrored for everyone.
+5) The room playback continues even if the owner disconnects. New joiners should sync to the current state instantly.
+6) Handle autoplay policies correctly across devices: you CANNOT guarantee unmuted autoplay. Implement a robust “Click/Tap to enable sound” UX:
+   - Player may start muted automatically.
+   - Show a prominent overlay button “Enable Sound / Join Audio” that requests user interaction to unmute and start playback. After one interaction, audio must work reliably.
+7) Add drift correction: periodically compare client time vs authoritative room time and correct smoothly (small drift: minor seek or temporary playbackRate adjustment; large drift: direct seek).
+8) Add a chat panel on the right side (messages via Socket.IO).
+9) Use persistent storage so rooms and state survive server restarts (SQLite recommended). Do not lose data on refresh.
+10) Security basics: sanitize URLs, validate inputs, rate limit room creation/join attempts, and protect password rooms (hash password with bcrypt).
+
+ARCHITECTURE (mandatory):
+- Server is authoritative for room playback state. Each room has:
+  roomId, ownerUserId, url, isPlaying, positionSeconds, updatedAtEpochMs, title, description, coverImageUrl, platformType, movieName, isPrivate, passwordHash, createdAt, lastActiveAt.
+- When owner triggers play/pause/seek/setUrl, server updates state and broadcasts “room:state” to all clients in that room.
+- To compute current time for joiners: 
+  if isPlaying: effectiveTime = positionSeconds + (nowEpochMs - updatedAtEpochMs)/1000
+  else effectiveTime = positionSeconds
+- Persist state changes to SQLite. Room continues even if owner disconnects.
+
+FRONTEND REQUIREMENTS:
+- Pages:
+  A) Login (simple username + optional avatar; no external auth needed).
+  B) Rooms list page (like a cinema rooms directory) with search and filter chips: All, Live, YouTube, External, Public/Private.
+     Display room cards with badges and “Join” button.
+     Top bar: language switch (EN/TR placeholder), level badge, “Create Room” button, notifications icon, profile menu.
+     Left sidebar navigation: Home, Cinema Rooms, Announcements, Rankings, VIP, Admin Panel (admin visible only).
+  C) Room page:
+     - Video/player area (responsive).
+     - Owner controls: play/pause, seek slider, set URL, optional movie title/name, lock/unlock (password), close room.
+     - Viewer controls: play/pause disabled (only owner controls), but allow local volume control and “Enable Sound” overlay.
+     - Chat panel on the right.
+     - Show room owner badge and participant count.
+
+PLAYER SUPPORT:
+- For YouTube URLs: use YouTube IFrame API. Manage seek/play/pause and getCurrentTime reliably.
+- For generic external MP4/HLS links: use HTML5 <video> with HLS.js fallback if needed.
+- For “Netflix/Exxen etc.”: do NOT claim you can embed protected DRM content. Instead:
+  - Provide a “Link Sync Mode”: show the URL and a button “Open in new tab” plus a synchronized timer/controls concept explanation.
+  - Make it clear DRM sites cannot be embedded; keep the room type UI anyway.
+
+SYNC LOGIC:
+- Client listens to room:state updates and applies:
+  - Determine targetTime using effectiveTime formula.
+  - If drift > 1.0s, seek to targetTime.
+  - If drift 0.2–1.0s, adjust playbackRate briefly to catch up/slow down.
+  - If drift < 0.2s, do nothing.
+- Every 5 seconds, client sends “room:ping” to request latest state and measure latency (optional), or just rely on broadcast + periodic reconcile.
+
+DATABASE:
+- Use SQLite with a small ORM (better-sqlite3 or Prisma). Provide migrations.
+- Tables: users, rooms, messages, room_memberships (optional).
+- Persist room state updates and messages.
+
+ADMIN PANEL (simple but functional):
+- Admin can manage “Login buttons” like Telegram/WhatsApp links (from configuration table). On login screen, show buttons dynamically from DB (label + URL + icon type).
+- Admin can see rooms list and force close a room.
+
+DELIVERABLES:
+- Provide complete code: server + client + database schema + env examples.
+- Include clear run instructions for Replit:
+  - one command to install,
+  - one command to start dev,
+  - one command to build/serve production.
+- Add a HEALTH endpoint and basic logging.
+- Add comments explaining autoplay policy and why “Enable Sound” is required.
+
+IMPORTANT QUALITY RULES:
+- Must be stable on refresh and server restart.
+- Must not lose room state.
+- Must handle owner disconnect gracefully.
+- Must not promise impossible things (unmuted autoplay, embedding DRM streams).
+- Make UI look premium: dark background, gold accents, rounded cards, subtle shadows.
+- Code must be clean, modular, and easy to extend.
+
+Start by outlining the folder structure, then implement server, then client. Ensure everything runs end-to-end.

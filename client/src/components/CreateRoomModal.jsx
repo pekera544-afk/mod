@@ -54,8 +54,9 @@ export default function CreateRoomModal({ onClose, onCreated }) {
   };
 
   const providerInfo = {
-    youtube: 'YouTube embed URL yapıştırın (watch?v= veya embed/)',
-    external: 'Netflix, Exxen veya diğer platformlar — bağlantı paylaşılır, embed edilmez'
+    youtube: 'YouTube URL yapıştırın (youtube.com/watch?v=... veya youtu.be/...)',
+    video: 'Doğrudan MP4, WebM veya HLS (.m3u8) bağlantısı — gerçek zamanlı senkronize oynatma',
+    external: 'Netflix, Exxen vb. — DRM korumalı; bağlantı paylaşılır, embed edilemez'
   };
 
   return (
@@ -125,6 +126,7 @@ export default function CreateRoomModal({ onClose, onCreated }) {
             <div className="flex gap-2">
               {[
                 { val: 'youtube', label: '▶ YouTube' },
+                { val: 'video', label: '🎞 Video/HLS' },
                 { val: 'external', label: '🔗 Harici Link' }
               ].map(({ val, label }) => (
                 <button
@@ -148,7 +150,11 @@ export default function CreateRoomModal({ onClose, onCreated }) {
             <label className="block text-xs text-gray-400 mb-1.5">Yayın URL / Bağlantı *</label>
             <input
               type="text" value={form.streamUrl} onChange={e => set('streamUrl', e.target.value)}
-              placeholder={form.providerType === 'youtube' ? 'https://www.youtube.com/embed/...' : 'https://www.netflix.com/watch/...'}
+              placeholder={
+                form.providerType === 'youtube' ? 'https://www.youtube.com/watch?v=...' :
+                form.providerType === 'video' ? 'https://example.com/video.mp4  veya  stream.m3u8' :
+                'https://www.netflix.com/watch/...'
+              }
               className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none focus:ring-1 focus:ring-gold-DEFAULT"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
             />

@@ -248,7 +248,13 @@ export default function RoomPage() {
 
   const handleUrlChange = useCallback((streamUrl) => {
     if (!isHost && !isModerator) return;
-    const providerType = streamUrl.includes('youtube.com') || streamUrl.includes('youtu.be') ? 'youtube' : 'external';
+    let providerType = 'external';
+    if (streamUrl.includes('youtube.com') || streamUrl.includes('youtu.be')) {
+      providerType = 'youtube';
+    } else if (/\.(mp4|webm|ogg|mov|mkv|m3u8|ts)(\?|#|$)/i.test(streamUrl) ||
+               streamUrl.includes('.m3u8') || streamUrl.includes('/hls/')) {
+      providerType = 'video';
+    }
     socketRef.current?.emit('url_changed', { roomId: id, streamUrl, providerType });
     setRoom(prev => prev ? { ...prev, streamUrl, providerType } : prev);
   }, [isHost, isModerator, id]);
