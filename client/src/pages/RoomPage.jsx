@@ -194,6 +194,10 @@ export default function RoomPage() {
       if (user && userId !== user.id) showNotif('Bir kullanıcıya yönetici yetkisi verildi');
     });
 
+    socket.on('host_seek', ({ currentTimeSeconds }) => {
+      setRoomState(prev => ({ ...prev, currentTimeSeconds, _seekedAt: Date.now() }));
+    });
+
     socket.on('room_deleted', () => {
       alert('Bu oda kapatıldı.');
       navigate('/');
@@ -231,6 +235,12 @@ export default function RoomPage() {
     if (!isHost && !isModerator) return;
     setRoomState(prev => ({ ...prev, ...update }));
     socketRef.current?.emit('room_state_update', { roomId: id, ...update });
+  }, [isHost, isModerator, id]);
+
+  const handleSeek = useCallback((t) => {
+    if (!isHost && !isModerator) return;
+    setRoomState(prev => ({ ...prev, currentTimeSeconds: t }));
+    socketRef.current?.emit('host_seek', { roomId: id, currentTimeSeconds: t });
   }, [isHost, isModerator, id]);
 
   const handleUrlChange = useCallback((streamUrl) => {
@@ -345,6 +355,7 @@ export default function RoomPage() {
                   isHost={canControl}
                   roomState={roomState}
                   onStateChange={handleStateChange}
+                  onSeek={handleSeek}
                   onUrlChange={handleUrlChange}
                 />
               )}

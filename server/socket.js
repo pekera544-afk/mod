@@ -450,6 +450,15 @@ function setupSocket(io) {
       }
     });
 
+    socket.on('host_seek', ({ roomId, currentTimeSeconds }) => {
+      const key = String(roomId);
+      if (!canControl(socket, key)) return;
+      const state = getRoomState(key);
+      state.currentTimeSeconds = currentTimeSeconds;
+      state.lastUpdated = Date.now();
+      io.to(key).except(socket.id).emit('host_seek', { currentTimeSeconds });
+    });
+
     socket.on('player_sync_request', ({ roomId }) => {
       const key = String(roomId);
       const hostId = roomHosts.get(key);
