@@ -26,18 +26,25 @@ function getAllLiveCounts() {
 }
 
 const XP_PER_MESSAGE = 5;
-const XP_TABLE = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 5700, 7500];
+
+// Unlimited level system: XP required for level N = 25 * N * (N-1)
+// Level 1=0, 2=50, 3=150, 4=300, 5=500, 10=2250, 20=9500, 50=61250...
+function getXpForLevel(level) {
+  if (level <= 1) return 0;
+  return 25 * level * (level - 1);
+}
 
 function getLevelFromXp(xp) {
-  let level = 1;
-  for (let i = XP_TABLE.length - 1; i >= 0; i--) {
-    if (xp >= XP_TABLE[i]) { level = i + 1; break; }
-  }
-  return Math.min(level, 10);
+  if (!xp || xp <= 0) return 1;
+  // Approximate: 25*n^2 ~ xp → n ~ sqrt(xp/25)
+  let level = Math.max(1, Math.floor(Math.sqrt(xp / 25)));
+  while (getXpForLevel(level + 1) <= xp) level++;
+  while (level > 1 && getXpForLevel(level) > xp) level--;
+  return level;
 }
 
 function getXpForNextLevel(level) {
-  return XP_TABLE[Math.min(level, XP_TABLE.length - 1)] || XP_TABLE[XP_TABLE.length - 1];
+  return getXpForLevel(level + 1);
 }
 
 function getSpamKey(roomId, userId) { return `${roomId}:${userId}`; }
@@ -61,6 +68,13 @@ function canControl(socket, key) {
 function isModOrOwner(socket, key) { return canControl(socket, key); }
 
 function userPublicData(user) {
+  // Check frame expiry
+  let frameType = user.frameType || '';
+  let frameColor = user.frameColor || '';
+  if (user.frameExpiresAt && new Date(user.frameExpiresAt) < new Date()) {
+    frameType = '';
+    frameColor = '';
+  }
   return {
     id: user.id,
     username: user.username,
@@ -68,7 +82,9 @@ function userPublicData(user) {
     vip: user.vip,
     avatarUrl: user.avatarUrl || '',
     avatarType: user.avatarType || 'image',
-    frameType: user.frameType || '',
+    frameType,
+    frameColor,
+    chatBubble: user.chatBubble || '',
     badges: user.badges || '',
     level: user.level || 1,
     xp: user.xp || 0
@@ -111,7 +127,7 @@ function setupSocket(io) {
       try {
         const dbUser = await prisma.user.findUnique({
           where: { id: socket.user.id },
-          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true, xp: true }
+          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true, xp: true }
         });
         if (dbUser) {
           socket.user = { ...socket.user, ...dbUser };
@@ -167,7 +183,7 @@ function setupSocket(io) {
           data: { userId: socket.user.id, content: trimmed },
           include: {
             user: {
-              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true }
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true }
             }
           }
         });
@@ -683,7 +699,7 @@ function setupSocket(io) {
           data: msgData,
           include: {
             user: {
-              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true }
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true }
             },
             replyTo: {
               include: {

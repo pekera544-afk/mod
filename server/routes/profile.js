@@ -5,7 +5,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const PROFILE_SELECT = {
   id: true, username: true, role: true, vip: true,
-  avatarUrl: true, avatarType: true, frameType: true, badges: true,
+  avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true,
   level: true, xp: true, bio: true, createdAt: true
 };
 
@@ -14,7 +14,7 @@ router.get('/global-chat/history', async (req, res) => {
     const messages = await prisma.globalMessage.findMany({
       where: { deletedAt: null },
       include: {
-        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true } }
+        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true } }
       },
       orderBy: { createdAt: 'asc' },
       take: 100
@@ -235,6 +235,16 @@ router.post('/me/password', requireAuth, async (req, res) => {
   }
 });
 
+// Unlimited XP formula: Level N needs 25*N*(N-1) XP
+function getXpForLevel(level) { return level <= 1 ? 0 : 25 * level * (level - 1); }
+function getLevelFromXp(xp) {
+  if (!xp || xp <= 0) return 1;
+  let level = Math.max(1, Math.floor(Math.sqrt(xp / 25)));
+  while (getXpForLevel(level + 1) <= xp) level++;
+  while (level > 1 && getXpForLevel(level) > xp) level--;
+  return level;
+}
+
 router.post('/:id/give-xp', requireAdmin, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -242,12 +252,8 @@ router.post('/:id/give-xp', requireAdmin, async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
     if (!user) return res.status(404).json({ error: 'User not found' });
     const newXp = Math.max(0, (user.xp || 0) + Number(amount));
-    const XP_TABLE = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 5700, 7500];
-    let newLevel = 1;
-    for (let i = XP_TABLE.length - 1; i >= 0; i--) {
-      if (newXp >= XP_TABLE[i]) { newLevel = i + 1; break; }
-    }
-    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { xp: newXp, level: Math.min(newLevel, 10) }, select: PROFILE_SELECT });
+    const newLevel = getLevelFromXp(newXp);
+    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { xp: newXp, level: newLevel }, select: PROFILE_SELECT });
     res.json(updated);
   } catch (err) {
     console.error('give-xp error:', err);
@@ -259,9 +265,8 @@ router.post('/:id/set-level', requireAdmin, async (req, res) => {
   try {
     const { level } = req.body;
     if (!level) return res.status(400).json({ error: 'Level required' });
-    const XP_TABLE = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 5700, 7500];
-    const lvl = Math.min(Math.max(1, Number(level)), 10);
-    const xp = XP_TABLE[lvl - 1] || 0;
+    const lvl = Math.max(1, Number(level));
+    const xp = getXpForLevel(lvl);
     const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { level: lvl, xp }, select: PROFILE_SELECT });
     res.json(updated);
   } catch (err) {
@@ -282,7 +287,56 @@ router.post('/:id/set-badges', requireAdmin, async (req, res) => {
 router.post('/:id/set-frame', requireAdmin, async (req, res) => {
   try {
     const { frameType } = req.body;
-    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { frameType: frameType || '' }, select: PROFILE_SELECT });
+    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { frameType: frameType || '', frameColor: '', frameExpiresAt: null }, select: PROFILE_SELECT });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/gift-frame', requireAdmin, async (req, res) => {
+  try {
+    const { frameType, frameColor, days } = req.body;
+    const updateData = {
+      frameType: frameType || 'custom',
+      frameColor: frameColor || '',
+      frameExpiresAt: null
+    };
+    if (days && Number(days) > 0) {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + Number(days));
+      updateData.frameExpiresAt = expiresAt;
+    }
+    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: updateData, select: PROFILE_SELECT });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/me/set-bubble', requireAuth, async (req, res) => {
+  try {
+    const { chatBubble } = req.body;
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const isAdmin = user.role === 'admin';
+    const isMod = user.role === 'moderator';
+    if (!isAdmin && !isMod) return res.status(403).json({ error: 'Only admin/moderator can set bubble style' });
+    const ADMIN_BUBBLES = ['', 'blue', 'purple', 'green', 'cyan', 'gold', 'orange', 'pink', 'red', 'fire'];
+    const MOD_BUBBLES = ['', 'blue', 'purple', 'green', 'cyan'];
+    const allowed = isAdmin ? ADMIN_BUBBLES : MOD_BUBBLES;
+    if (!allowed.includes(chatBubble || '')) return res.status(400).json({ error: 'Invalid bubble style' });
+    await prisma.user.update({ where: { id: req.user.id }, data: { chatBubble: chatBubble || '' } });
+    res.json({ ok: true, chatBubble: chatBubble || '' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/set-bubble', requireAdmin, async (req, res) => {
+  try {
+    const { chatBubble } = req.body;
+    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { chatBubble: chatBubble || '' }, select: PROFILE_SELECT });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

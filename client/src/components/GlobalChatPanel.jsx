@@ -1,14 +1,75 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import UserProfileCard from './UserProfileCard';
 import BadgeList, { getUsernameClass, getRoleLabel } from './RoleBadge';
+import { getBubbleForRole } from '../config/bubblePresets';
 
 const EMOJI_LIST = ['😂', '❤️', '😍', '🔥', '👏', '😮', '😎', '🎬', '👑', '💎', '🎉', '😭'];
 
-function ChatMessageItem({ msg, onUserClick, isAdmin, onDelete }) {
+function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
   const usernameClass = getUsernameClass(msg.user);
   const roleInfo = getRoleLabel(msg.user);
+  const isAdmin = msg.user?.role === 'admin';
+  const isMod = msg.user?.role === 'moderator';
+  const hasBubble = isAdmin || isMod;
+  const bubble = hasBubble ? getBubbleForRole(msg.user?.role, msg.user?.chatBubble) : null;
+
+  if (hasBubble && bubble) {
+    return (
+      <div className="flex gap-2 items-start py-1.5 px-2 group fade-in-up">
+        <div className="flex-shrink-0 mt-0.5">
+          <UserAvatar user={msg.user} size={28} onClick={() => onUserClick && onUserClick(msg.user.id)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          {/* Role label above username */}
+          {isAdmin && (
+            <div className="flex items-center gap-1 mb-0.5">
+              <span className="text-xs font-black tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(220,38,38,0.2)', color: '#ff6b6b', border: '1px solid rgba(220,38,38,0.4)', fontSize: 9, letterSpacing: '0.15em' }}>
+                ADMİN
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 flex-wrap mb-0.5">
+            {isMod && !isAdmin && (
+              <span className="text-xs font-bold" style={{ color: '#3b82f6', fontSize: 10 }}>🛡️ MOD</span>
+            )}
+            <span
+              className={`text-xs font-bold cursor-pointer ${usernameClass}`}
+              style={{ fontWeight: 800 }}
+              onClick={() => onUserClick && onUserClick(msg.user.id)}
+            >
+              {msg.user.username}
+            </span>
+            <BadgeList badges={msg.user.badges} size={10} />
+            <span className="text-gray-600 ml-auto flex-shrink-0" style={{ fontSize: 9 }}>
+              {new Date(msg.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {canDelete && (
+              <button
+                onClick={() => onDelete(msg.id)}
+                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                style={{ fontSize: 10 }}
+              >🗑</button>
+            )}
+          </div>
+          {/* Bubble message */}
+          <div className="rounded-2xl rounded-tl-sm px-3 py-2 inline-block max-w-full"
+            style={{
+              background: bubble.bg,
+              border: `1px solid ${bubble.border}40`,
+              boxShadow: `0 0 8px ${bubble.border}20`,
+            }}>
+            <p className="text-xs break-words leading-relaxed"
+              style={{ color: isAdmin ? '#fca5a5' : bubble.text, fontWeight: isAdmin ? 700 : 500 }}>
+              {msg.content}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2 items-start py-1 px-2 rounded-lg hover:bg-white/3 group fade-in-up">
@@ -17,7 +78,7 @@ function ChatMessageItem({ msg, onUserClick, isAdmin, onDelete }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1 flex-wrap">
-          {roleInfo && (
+          {roleInfo && !isAdmin && (
             <span style={{ fontSize: 11, color: roleInfo.color }}>{roleInfo.icon}</span>
           )}
           <span
@@ -30,14 +91,12 @@ function ChatMessageItem({ msg, onUserClick, isAdmin, onDelete }) {
           <span className="text-gray-600" style={{ fontSize: 10 }}>
             {new Date(msg.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {isAdmin && (
+          {canDelete && (
             <button
               onClick={() => onDelete(msg.id)}
               className="opacity-0 group-hover:opacity-100 ml-auto text-red-400 hover:text-red-300 transition-opacity"
               style={{ fontSize: 10 }}
-            >
-              🗑
-            </button>
+            >🗑</button>
           )}
         </div>
         <div className="text-xs leading-relaxed break-words" style={{ color: '#d1d5db', marginTop: 1 }}>
@@ -130,29 +189,19 @@ export default function GlobalChatPanel({ onClose, socket }) {
     socket.emit('admin_clear_global_chat');
   }
 
-  const isAdmin = user?.role === 'admin';
-  const isMod = user?.role === 'moderator';
+  const isAdminOrMod = user?.role === 'admin' || user?.role === 'moderator';
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-end justify-end"
-      style={{ pointerEvents: 'none' }}
-    >
+    <div className="fixed inset-0 z-40 flex items-end justify-end" style={{ pointerEvents: 'none' }}>
       <div
         className="slide-in-right"
         style={{
-          width: 340,
-          height: '90vh',
-          maxHeight: 640,
-          marginBottom: 80,
-          marginRight: 16,
+          width: 340, height: '90vh', maxHeight: 640,
+          marginBottom: 80, marginRight: 16,
           background: 'rgba(12,12,18,0.98)',
           border: '1px solid rgba(212,175,55,0.2)',
-          borderRadius: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          pointerEvents: 'all',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.8)'
+          borderRadius: 16, display: 'flex', flexDirection: 'column',
+          pointerEvents: 'all', boxShadow: '0 8px 40px rgba(0,0,0,0.8)'
         }}
       >
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -161,7 +210,7 @@ export default function GlobalChatPanel({ onClose, socket }) {
             <div className="text-xs text-gray-500">{onlineCount} çevrimiçi</div>
           </div>
           <div className="flex gap-2 items-center">
-            {(isAdmin || isMod) && (
+            {isAdminOrMod && (
               <button onClick={clearChat} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all">
                 Temizle
               </button>
@@ -183,7 +232,7 @@ export default function GlobalChatPanel({ onClose, socket }) {
               key={msg.id}
               msg={msg}
               onUserClick={setProfileId}
-              isAdmin={isAdmin || isMod}
+              canDelete={isAdminOrMod}
               onDelete={deleteMessage}
             />
           ))}

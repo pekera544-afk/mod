@@ -18,9 +18,10 @@ export function getUsernameClass(user) {
   return 'username-user';
 }
 
+// Returns null — admin label is rendered as text inline, not as an icon
 export function getRoleLabel(user) {
-  if (user?.role === 'admin') return { icon: '⚙️', label: 'Admin', color: '#ff6b6b' };
-  if (user?.role === 'moderator') return { icon: '🛡️', label: 'Mod', color: '#3b82f6' };
+  if (user?.role === 'admin') return { icon: null, label: 'ADMİN', color: '#ff6b6b', isAdmin: true };
+  if (user?.role === 'moderator') return { icon: '🛡️', label: 'MOD', color: '#3b82f6', isMod: true };
   if (user?.vip) return { icon: '💎', label: 'VIP', color: '#a855f7' };
   return null;
 }

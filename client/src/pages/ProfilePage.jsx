@@ -5,6 +5,7 @@ import { useOutletContext } from 'react-router-dom';
 import UserAvatar, { FRAME_LIST } from '../components/UserAvatar';
 import XpBar from '../components/XpBar';
 import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
+import { BUBBLE_PRESETS, MOD_BUBBLE_COUNT, ADMIN_BUBBLE_COUNT } from '../config/bubblePresets';
 
 function BackButton() {
   const navigate = useNavigate();
@@ -81,8 +82,12 @@ function MyProfileSettings({ profile, onUpdated }) {
   const [selectedFrame, setSelectedFrame] = useState(profile.frameType || '');
   const [frameMsg, setFrameMsg] = useState(null);
   const [savingFrame, setSavingFrame] = useState(false);
+  const [selectedBubble, setSelectedBubble] = useState(profile.chatBubble || '');
+  const [bubbleMsg, setBubbleMsg] = useState(null);
+  const [savingBubble, setSavingBubble] = useState(false);
 
   const isPrivileged = profile.role === 'admin' || profile.role === 'moderator' || profile.vip;
+  const isAdminOrMod = profile.role === 'admin' || profile.role === 'moderator';
   const hasGrantedFrame = !!(profile.frameType);
   const availableFrames = isPrivileged
     ? FRAME_LIST
@@ -107,6 +112,25 @@ function MyProfileSettings({ profile, onUpdated }) {
       setFrameMsg({ type: 'error', text: err.message || 'Bir hata oluştu' });
     } finally {
       setSavingFrame(false);
+    }
+  }
+
+  async function saveBubble() {
+    setSavingBubble(true);
+    setBubbleMsg(null);
+    try {
+      const res = await fetch('/api/profile/me/set-bubble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('yoko_token')}` },
+        body: JSON.stringify({ chatBubble: selectedBubble })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Hata');
+      setBubbleMsg({ type: 'success', text: selectedBubble ? '✓ Balon rengi kaydedildi' : '✓ Balon kapatıldı' });
+    } catch (err) {
+      setBubbleMsg({ type: 'error', text: err.message || 'Bir hata oluştu' });
+    } finally {
+      setSavingBubble(false);
     }
   }
 
@@ -211,6 +235,7 @@ function MyProfileSettings({ profile, onUpdated }) {
   const tabs = [
     { key: 'profile', label: '🖼️ Profil' },
     { key: 'frame', label: '✨ Çerçeve' },
+    ...(isAdminOrMod ? [{ key: 'bubble', label: '💬 Balon' }] : []),
     { key: 'account', label: '👤 Hesap' },
     { key: 'password', label: '🔑 Şifre' },
   ];
@@ -374,6 +399,51 @@ function MyProfileSettings({ profile, onUpdated }) {
               style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.1))', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}
             >
               {savingFrame ? 'Kaydediliyor...' : selectedFrame ? '✨ Çerçeveyi Tak' : '○ Çerçeveyi Çıkar'}
+            </button>
+          </>
+        )}
+
+        {activeTab === 'bubble' && isAdminOrMod && (
+          <>
+            <div className="flex items-center gap-3 p-3 rounded-xl mb-4" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <div>
+                <div className="text-sm font-bold text-blue-300">💬 Sohbet Balonu Rengi</div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {profile.role === 'admin' ? 'Admin: 10 renk seçeneği' : 'Moderatör: 5 renk seçeneği'}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              {BUBBLE_PRESETS.slice(0, profile.role === 'admin' ? ADMIN_BUBBLE_COUNT : MOD_BUBBLE_COUNT).map(p => {
+                const isSelected = selectedBubble === p.id;
+                return (
+                  <button key={p.id} onClick={() => setSelectedBubble(p.id)}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all"
+                    style={{
+                      background: isSelected ? `${p.border}12` : 'rgba(255,255,255,0.03)',
+                      border: isSelected ? `1.5px solid ${p.border}` : '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                    <div className="w-16 h-7 rounded-xl flex items-center justify-center text-xs"
+                      style={{ background: p.bg, border: `1px solid ${p.border}40`, color: p.text, boxShadow: isSelected ? `0 0 6px ${p.border}40` : 'none' }}>
+                      Merhaba
+                    </div>
+                    <span className="flex-1 text-sm" style={{ color: isSelected ? p.border : '#d1d5db' }}>{p.name}</span>
+                    {isSelected && <span className="text-xs" style={{ color: p.border }}>✓ Seçili</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <StatusMsg msg={bubbleMsg?.text} type={bubbleMsg?.type} />
+
+            <button
+              onClick={saveBubble}
+              disabled={savingBubble || selectedBubble === (profile.chatBubble || '')}
+              className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
+              style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.25),rgba(59,130,246,0.1))', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.4)' }}
+            >
+              {savingBubble ? 'Kaydediliyor...' : selectedBubble ? '💬 Balon Rengini Kaydet' : '○ Balonu Kapat'}
             </button>
           </>
         )}

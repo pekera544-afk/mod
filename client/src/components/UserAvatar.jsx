@@ -14,9 +14,81 @@ export const FRAME_LIST = [
   { value: 'sakura', label: '🌸 Sakura', color: '#fda4af', icon: '🌸' },
 ];
 
+// Role-exclusive frames (shown only in selector for that role)
+export const ADMIN_EXCLUSIVE_FRAME = {
+  value: 'admin-role',
+  label: '⚙️ ADMİN Çerçevesi',
+  color: '#ff4444',
+  icon: '⚙️',
+  roleOnly: 'admin'
+};
+export const MOD_EXCLUSIVE_FRAME = {
+  value: 'mod-role',
+  label: '🛡️ MODERATÖR Çerçevesi',
+  color: '#3b82f6',
+  icon: '🛡️',
+  roleOnly: 'moderator'
+};
+
+function RoleFrameWrapper({ frameType, frameColor, size, onClick, children }) {
+  const isAdmin = frameType === 'admin-role';
+  const isMod = frameType === 'mod-role';
+  const color = isAdmin ? '#ff4444' : '#3b82f6';
+  const label = isAdmin ? 'ADMİN' : 'MOD';
+
+  return (
+    <div
+      style={{
+        width: size + 10,
+        minWidth: size + 10,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        cursor: onClick ? 'pointer' : 'default',
+        flexShrink: 0,
+      }}
+      onClick={onClick}
+    >
+      <div
+        style={{
+          width: size + 6,
+          height: size + 6,
+          borderRadius: '50%',
+          padding: 3,
+          background: `conic-gradient(${color}, #fff2, ${color})`,
+          boxShadow: `0 0 12px ${color}80`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {children}
+        </div>
+      </div>
+      <div style={{
+        fontSize: 8,
+        fontWeight: 900,
+        letterSpacing: '0.1em',
+        color: '#fff',
+        background: color,
+        borderRadius: 3,
+        padding: '1px 4px',
+        marginTop: -4,
+        lineHeight: 1.4,
+        zIndex: 1,
+        boxShadow: `0 1px 4px ${color}80`,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export default function UserAvatar({ user, size = 36, onClick }) {
-  const hasFrame = !!(user?.frameType);
-  const frameClass = hasFrame ? `frame-${user.frameType}` : '';
+  const frameType = user?.frameType || '';
+  const frameColor = user?.frameColor || '';
+
   const initial = (user?.username || '?')[0].toUpperCase();
   const colors = {
     admin: 'from-red-500 to-yellow-500',
@@ -37,36 +109,63 @@ export default function UserAvatar({ user, size = 36, onClick }) {
     <span className="font-bold text-white select-none" style={{ fontSize: size * 0.38 }}>{initial}</span>
   );
 
-  if (hasFrame) {
+  const innerDiv = (
+    <div
+      style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      className={user?.avatarUrl ? '' : `bg-gradient-to-br ${gradClass}`}
+    >
+      {innerContent}
+    </div>
+  );
+
+  // Special role frames
+  if (frameType === 'admin-role' || frameType === 'mod-role') {
+    return (
+      <RoleFrameWrapper frameType={frameType} frameColor={frameColor} size={size} onClick={onClick}>
+        {innerContent}
+      </RoleFrameWrapper>
+    );
+  }
+
+  // Custom-color frame (gifted by admin)
+  if (frameType === 'custom' && frameColor) {
     const outerSize = size + 6;
     return (
       <div
-        className={`${frameClass} flex-shrink-0`}
         style={{
-          width: outerSize,
-          height: outerSize,
-          minWidth: outerSize,
-          minHeight: outerSize,
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: onClick ? 'pointer' : 'default',
-          padding: 3,
-          flexShrink: 0,
+          width: outerSize, height: outerSize, minWidth: outerSize, minHeight: outerSize,
+          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: onClick ? 'pointer' : 'default', padding: 3, flexShrink: 0,
+          background: `conic-gradient(${frameColor}, #ffffff20, ${frameColor})`,
+          boxShadow: `0 0 14px ${frameColor}60`,
+          animation: 'spin 3s linear infinite',
         }}
         onClick={onClick}
       >
-        <div
-          style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          className={user?.avatarUrl ? '' : `bg-gradient-to-br ${gradClass}`}
-        >
-          {innerContent}
-        </div>
+        {innerDiv}
       </div>
     );
   }
 
+  // Standard frame (CSS class)
+  if (frameType) {
+    const outerSize = size + 6;
+    return (
+      <div
+        className={`frame-${frameType} flex-shrink-0`}
+        style={{
+          width: outerSize, height: outerSize, minWidth: outerSize, minHeight: outerSize,
+          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: onClick ? 'pointer' : 'default', padding: 3, flexShrink: 0,
+        }}
+        onClick={onClick}
+      >
+        {innerDiv}
+      </div>
+    );
+  }
+
+  // No frame
   return (
     <div
       style={{ width: size, height: size, minWidth: size, minHeight: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, cursor: onClick ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}

@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FRAME_LIST } from '../../components/UserAvatar';
+import { BUBBLE_PRESETS, MOD_BUBBLE_COUNT, ADMIN_BUBBLE_COUNT } from '../../config/bubblePresets';
 
 const AVAILABLE_BADGES = ['⭐', '🏆', '🎬', '🔥', '💎', '🛡️', '🎭', '🌟', '👑', '🦊'];
 const AVAILABLE_FRAMES = FRAME_LIST;
+const GIFT_COLORS = [
+  { label: '🔴 Kırmızı', color: '#dc2626' }, { label: '🔵 Mavi', color: '#3b82f6' },
+  { label: '🟢 Yeşil', color: '#22c55e' }, { label: '🟣 Mor', color: '#a855f7' },
+  { label: '🟡 Altın', color: '#d4af37' }, { label: '🟠 Turuncu', color: '#f97316' },
+  { label: '🌸 Pembe', color: '#ec4899' }, { label: '💠 Cyan', color: '#06b6d4' },
+  { label: '⚡ Neon', color: '#39ff14' }, { label: '🌈 Rainbow', color: '#ff00aa' },
+];
 
 function EditUserModal({ user, onClose, onSaved }) {
   const [tab, setTab] = useState('basic');
@@ -18,6 +26,10 @@ function EditUserModal({ user, onClose, onSaved }) {
   });
   const [badges, setBadges] = useState((user.badges || '').split(',').map(b => b.trim()).filter(b => b));
   const [frame, setFrame] = useState(user.frameType || '');
+  const [giftColor, setGiftColor] = useState('#d4af37');
+  const [giftDays, setGiftDays] = useState('');
+  const [giftPerm, setGiftPerm] = useState(true);
+  const [bubbleChoice, setBubbleChoice] = useState(user.chatBubble || '');
   const [xpAmount, setXpAmount] = useState('');
   const [levelVal, setLevelVal] = useState(user.level || 1);
   const [vipDays, setVipDays] = useState('');
@@ -57,6 +69,24 @@ function EditUserModal({ user, onClose, onSaved }) {
     } catch { setError('Çerçeve kayıt hatası'); }
   };
 
+  const giftFrame = async () => {
+    try {
+      await axios.post(`/api/profile/${user.id}/gift-frame`, {
+        frameType: 'custom',
+        frameColor: giftColor,
+        days: giftPerm ? 0 : Number(giftDays)
+      });
+      showSuccess(`Özel çerçeve hediye edildi!${giftPerm ? ' (Süresiz)' : ` (${giftDays} gün)`}`);
+    } catch { setError('Çerçeve hediye hatası'); }
+  };
+
+  const saveBubble = async () => {
+    try {
+      await axios.post(`/api/profile/${user.id}/set-bubble`, { chatBubble: bubbleChoice });
+      showSuccess('Sohbet balonu kaydedildi!');
+    } catch { setError('Balon kayıt hatası'); }
+  };
+
   const giveXp = async () => {
     if (!xpAmount) return;
     try {
@@ -91,6 +121,7 @@ function EditUserModal({ user, onClose, onSaved }) {
     { key: 'xp', label: 'XP/Level' },
     { key: 'vip', label: 'VIP' },
     { key: 'frame', label: 'Çerçeve' },
+    { key: 'bubble', label: 'Balon' },
   ];
 
   return (
@@ -222,7 +253,7 @@ function EditUserModal({ user, onClose, onSaved }) {
                 </div>
               </div>
               <div className="grid grid-cols-5 gap-1.5">
-                {[1,2,3,4,5,6,7,8,9,10].map(l => (
+                {[1,5,10,20,50,100,150,200,250,300].map(l => (
                   <button key={l} onClick={() => setLevelVal(l)}
                     className="py-2 rounded-lg text-sm font-bold transition-all"
                     style={{ background: levelVal === l ? 'rgba(212,175,55,0.25)' : 'rgba(255,255,255,0.05)', color: levelVal === l ? '#d4af37' : '#6b7280', border: levelVal === l ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.08)' }}>
@@ -320,6 +351,89 @@ function EditUserModal({ user, onClose, onSaved }) {
                 </div>
               )}
               <button onClick={saveFrame} className="w-full btn-gold py-2.5 text-sm">🎨 Çerçeveyi Kaydet</button>
+
+              <div className="border-t border-white/5 pt-3">
+                <div className="text-xs font-semibold text-gray-400 mb-2">🎁 Özel Renkli Çerçeve Hediye Et</div>
+                <div className="text-xs text-gray-500 mb-2">Animasyonlu özel renk (CSS spin efektli)</div>
+                <div className="grid grid-cols-5 gap-1.5 mb-3">
+                  {GIFT_COLORS.map(gc => (
+                    <button key={gc.color} onClick={() => setGiftColor(gc.color)}
+                      title={gc.label}
+                      className="h-8 rounded-lg transition-all flex items-center justify-center"
+                      style={{
+                        background: `${gc.color}25`,
+                        border: giftColor === gc.color ? `2px solid ${gc.color}` : `1px solid ${gc.color}44`,
+                        boxShadow: giftColor === gc.color ? `0 0 8px ${gc.color}60` : 'none',
+                        fontSize: 11
+                      }}>
+                      <span style={{ color: gc.color }}>●</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <input type="color" value={giftColor} onChange={e => setGiftColor(e.target.value)}
+                    className="w-10 h-8 rounded cursor-pointer" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <span className="text-xs text-gray-400">Özel renk seç</span>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <input type="checkbox" id="giftPerm" checked={giftPerm} onChange={e => setGiftPerm(e.target.checked)} className="accent-gold-DEFAULT" />
+                  <label htmlFor="giftPerm" className="text-xs text-gray-300">Süresiz</label>
+                </div>
+                {!giftPerm && (
+                  <input type="number" min="1" value={giftDays} onChange={e => setGiftDays(e.target.value)}
+                    placeholder="Kaç gün?" className="w-full px-3 py-2 rounded-xl text-white text-xs outline-none mb-2"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+                )}
+                <button onClick={giftFrame} className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: `${giftColor}20`, color: giftColor, border: `1px solid ${giftColor}60` }}>
+                  🎁 Özel Çerçeve Hediye Et
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'bubble' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                <span className="text-2xl">💬</span>
+                <div>
+                  <div className="text-sm font-bold text-blue-300">Sohbet Balonu</div>
+                  <div className="text-xs text-gray-400">Yalnızca Admin/Mod kullanıcıları için</div>
+                </div>
+              </div>
+              {(user.role === 'admin' || user.role === 'moderator') ? (
+                <>
+                  <div className="text-xs text-gray-500">
+                    {user.role === 'admin' ? `Admin: 10 balon rengi` : `Mod: 5 balon rengi`}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {BUBBLE_PRESETS.slice(0, user.role === 'admin' ? ADMIN_BUBBLE_COUNT : MOD_BUBBLE_COUNT).map(p => {
+                      const isSelected = bubbleChoice === p.id;
+                      return (
+                        <button key={p.id} onClick={() => setBubbleChoice(p.id)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm transition-all"
+                          style={{
+                            background: isSelected ? `${p.border}15` : 'rgba(255,255,255,0.03)',
+                            border: isSelected ? `1.5px solid ${p.border}` : '1px solid rgba(255,255,255,0.06)',
+                          }}>
+                          <div className="w-8 h-6 rounded-lg flex items-center justify-center text-xs"
+                            style={{ background: p.bg, border: `1px solid ${p.border}40` }}>
+                            <span style={{ color: p.text, fontSize: 9 }}>Aa</span>
+                          </div>
+                          <span style={{ color: isSelected ? p.border : '#9ca3af', fontSize: 12 }}>{p.name}</span>
+                          {isSelected && <span className="ml-auto text-xs" style={{ color: p.border }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={saveBubble} className="w-full btn-gold py-2.5 text-sm">💬 Balonu Kaydet</button>
+                </>
+              ) : (
+                <div className="p-4 rounded-xl text-center text-xs text-gray-500"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  Bu kullanıcı Admin veya Mod değil.<br />Balon rengi yalnızca yetkili kullanıcılar için geçerlidir.
+                </div>
+              )}
             </div>
           )}
         </div>

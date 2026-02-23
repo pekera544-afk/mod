@@ -10,6 +10,7 @@ import PasswordPrompt from '../components/PasswordPrompt';
 import UserAvatar from '../components/UserAvatar';
 import UserProfileCard from '../components/UserProfileCard';
 import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
+import { getBubbleForRole } from '../config/bubblePresets';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
@@ -29,8 +30,57 @@ function highlightMentions(text) {
 
 function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canModerate, onUserClick }) {
   const usernameClass = getUsernameClass(msg.user);
-  const roleInfo = getRoleLabel(msg.user);
   const isOwn = msg.user?.id === currentUserId;
+  const isAdmin = msg.user?.role === 'admin';
+  const isMod = msg.user?.role === 'moderator';
+  const bubble = (isAdmin || isMod) ? getBubbleForRole(msg.user?.role, msg.user?.chatBubble) : null;
+
+  const actions = (
+    <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 flex-shrink-0 transition-opacity">
+      <button onClick={() => onReply && onReply(msg)} className="text-gray-500 hover:text-gray-300 px-1" style={{ fontSize: 10 }} title="Yanıtla">↩</button>
+      {isOwn && <button onClick={() => onDeleteOwn(msg.id)} className="text-red-500 hover:text-red-300 px-1" style={{ fontSize: 10 }} title="Sil">✕</button>}
+      {canModerate && !isOwn && <button onClick={() => onDelete(msg.id)} className="text-red-400 hover:text-red-300 px-1" style={{ fontSize: 10 }} title="Sil">⊘</button>}
+    </div>
+  );
+
+  if (bubble) {
+    return (
+      <div className="flex gap-2 group py-1.5 px-1 fade-in-up">
+        <div className="flex-shrink-0 mt-0.5">
+          <UserAvatar user={msg.user} size={24} onClick={() => onUserClick && onUserClick(msg.user?.id)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          {msg.replyTo && (
+            <div className="mb-1 px-2 py-1 rounded-lg text-xs truncate"
+              style={{ background: 'rgba(212,175,55,0.08)', borderLeft: '2px solid rgba(212,175,55,0.4)', color: '#9ca3af' }}>
+              <span style={{ color: '#d4af37' }}>@{msg.replyTo.user?.username}</span>: {msg.replyTo.content?.slice(0, 60)}
+            </div>
+          )}
+          {isAdmin && (
+            <div className="mb-0.5">
+              <span className="text-xs font-black tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(220,38,38,0.2)', color: '#ff6b6b', border: '1px solid rgba(220,38,38,0.4)', fontSize: 8, letterSpacing: '0.15em' }}>
+                ADMİN
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 flex-wrap mb-0.5">
+            {isMod && !isAdmin && <span style={{ fontSize: 9, color: '#3b82f6' }}>🛡️ MOD</span>}
+            <span className={`text-xs font-bold cursor-pointer ${usernameClass}`} style={{ fontWeight: 800 }} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
+            <BadgeList badges={msg.user?.badges} size={10} />
+            <span className="text-gray-600 ml-auto" style={{ fontSize: 9 }}>{formatTime(msg.createdAt)}</span>
+            {actions}
+          </div>
+          <div className="rounded-2xl rounded-tl-sm px-3 py-1.5 inline-block max-w-full"
+            style={{ background: bubble.bg, border: `1px solid ${bubble.border}40`, boxShadow: `0 0 6px ${bubble.border}20` }}>
+            <span className="text-xs break-words leading-relaxed" style={{ color: isAdmin ? '#fca5a5' : bubble.text, fontWeight: isAdmin ? 700 : 500 }}>
+              {highlightMentions(msg.content)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2 group py-1 px-1 rounded-lg hover:bg-white/3 fade-in-up">
@@ -45,30 +95,13 @@ function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canMo
           </div>
         )}
         <div className="flex items-center gap-1 flex-wrap">
-          {roleInfo && <span style={{ fontSize: 10, color: roleInfo.color }}>{roleInfo.icon}</span>}
-          <span className={`text-xs font-semibold cursor-pointer ${usernameClass}`} onClick={() => onUserClick && onUserClick(msg.user?.id)}>
-            {msg.user?.username}
-          </span>
+          <span className={`text-xs font-semibold cursor-pointer ${usernameClass}`} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
           <BadgeList badges={msg.user?.badges} size={10} />
           <span className="text-gray-600 ml-auto flex-shrink-0" style={{ fontSize: 9 }}>{formatTime(msg.createdAt)}</span>
         </div>
         <div className="flex items-start gap-1">
           <span className="text-xs text-gray-300 break-words leading-relaxed flex-1">{highlightMentions(msg.content)}</span>
-          <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 flex-shrink-0 transition-opacity mt-0.5">
-            <button onClick={() => onReply && onReply(msg)}
-              className="text-gray-500 hover:text-gray-300 px-1"
-              style={{ fontSize: 10 }} title="Yanıtla">↩</button>
-            {isOwn && (
-              <button onClick={() => onDeleteOwn(msg.id)}
-                className="text-red-500 hover:text-red-300 px-1"
-                style={{ fontSize: 10 }} title="Sil">✕</button>
-            )}
-            {canModerate && !isOwn && (
-              <button onClick={() => onDelete(msg.id)}
-                className="text-red-400 hover:text-red-300 px-1"
-                style={{ fontSize: 10 }} title="Moderatör: Sil">⊘</button>
-            )}
-          </div>
+          {actions}
         </div>
       </div>
     </div>
