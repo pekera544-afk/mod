@@ -54,44 +54,75 @@ model PwaSettings {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  username     String     @unique
-  email        String     @unique
-  passwordHash String
-  role         String     @default("user")
-  vip          Boolean    @default(false)
-  banned       Boolean    @default(false)
-  bannedUntil  DateTime?
-  createdAt    DateTime   @default(now())
-  messages     Message[]
-  auditLogs    AuditLog[]
-  ownedRooms   Room[]     @relation("RoomOwner")
+  id              Int              @id @default(autoincrement())
+  username        String           @unique
+  email           String           @unique
+  passwordHash    String
+  role            String           @default("user")
+  vip             Boolean          @default(false)
+  banned          Boolean          @default(false)
+  bannedUntil     DateTime?
+  createdAt       DateTime         @default(now())
+  messages        Message[]
+  auditLogs       AuditLog[]
+  ownedRooms      Room[]           @relation("RoomOwner")
+  roomModsGiven   RoomModerator[]  @relation("ModeratorAssigner")
+  roomModsHeld    RoomModerator[]  @relation("ModeratorUser")
+  roomBansGiven   RoomBan[]        @relation("BanBanner")
+  roomBansHeld    RoomBan[]        @relation("BanUser")
 }
 
 model Room {
-  id                   Int        @id @default(autoincrement())
-  title                String
-  description          String     @default("")
-  movieTitle           String     @default("")
-  posterUrl            String     @default("")
-  streamUrl            String     @default("")
-  providerType         String     @default("youtube")
-  isTrending           Boolean    @default(false)
-  allowedRoles         String     @default("user,vip,admin")
-  maxUsers             Int        @default(100)
-  isActive             Boolean    @default(true)
-  isLocked             Boolean    @default(false)
-  passwordHash         String?
-  chatEnabled          Boolean    @default(true)
-  spamProtectionEnabled Boolean   @default(true)
-  spamCooldownSeconds  Int        @default(3)
-  ownerId              Int?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-  deletedAt            DateTime?
-  messages             Message[]
-  state                RoomState?
-  owner                User?      @relation("RoomOwner", fields: [ownerId], references: [id])
+  id                    Int              @id @default(autoincrement())
+  title                 String
+  description           String           @default("")
+  movieTitle            String           @default("")
+  posterUrl             String           @default("")
+  streamUrl             String           @default("")
+  providerType          String           @default("youtube")
+  isTrending            Boolean          @default(false)
+  allowedRoles          String           @default("user,vip,admin")
+  maxUsers              Int              @default(100)
+  isActive              Boolean          @default(true)
+  isLocked              Boolean          @default(false)
+  passwordHash          String?
+  chatEnabled           Boolean          @default(true)
+  spamProtectionEnabled Boolean          @default(true)
+  spamCooldownSeconds   Int              @default(3)
+  ownerId               Int?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  deletedAt             DateTime?
+  messages              Message[]
+  state                 RoomState?
+  moderators            RoomModerator[]
+  bans                  RoomBan[]
+  owner                 User?            @relation("RoomOwner", fields: [ownerId], references: [id])
+}
+
+model RoomModerator {
+  id          Int      @id @default(autoincrement())
+  roomId      Int
+  userId      Int
+  assignedBy  Int
+  createdAt   DateTime @default(now())
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user        User     @relation("ModeratorUser", fields: [userId], references: [id])
+  assigner    User     @relation("ModeratorAssigner", fields: [assignedBy], references: [id])
+  @@unique([roomId, userId])
+}
+
+model RoomBan {
+  id        Int      @id @default(autoincrement())
+  roomId    Int
+  userId    Int
+  bannedBy  Int
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation("BanUser", fields: [userId], references: [id])
+  banner    User     @relation("BanBanner", fields: [bannedBy], references: [id])
+  @@unique([roomId, userId])
 }
 
 model RoomState {

@@ -207,4 +207,84 @@ router.get('/:id/messages', async (req, res) => {
   }
 });
 
+router.get('/:id/moderators', async (req, res) => {
+  try {
+    const mods = await prisma.roomModerator.findMany({
+      where: { roomId: Number(req.params.id) },
+      include: { user: { select: { id: true, username: true, role: true, vip: true } } }
+    });
+    res.json(mods);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/:id/moderators', requireAuth, async (req, res) => {
+  try {
+    const room = await prisma.room.findFirst({ where: { id: Number(req.params.id), deletedAt: null } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    if (room.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    const { userId } = req.body;
+    const mod = await prisma.roomModerator.upsert({
+      where: { roomId_userId: { roomId: Number(req.params.id), userId: Number(userId) } },
+      update: {},
+      create: { roomId: Number(req.params.id), userId: Number(userId), assignedBy: req.user.id }
+    });
+    res.json(mod);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+router.delete('/:id/moderators/:userId', requireAuth, async (req, res) => {
+  try {
+    const room = await prisma.room.findFirst({ where: { id: Number(req.params.id), deletedAt: null } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    if (room.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    await prisma.roomModerator.deleteMany({
+      where: { roomId: Number(req.params.id), userId: Number(req.params.userId) }
+    });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+router.get('/:id/bans', requireAuth, async (req, res) => {
+  try {
+    const room = await prisma.room.findFirst({ where: { id: Number(req.params.id), deletedAt: null } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    if (room.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    const bans = await prisma.roomBan.findMany({
+      where: { roomId: Number(req.params.id) },
+      include: { user: { select: { id: true, username: true } } }
+    });
+    res.json(bans);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/:id/bans', requireAuth, async (req, res) => {
+  try {
+    const room = await prisma.room.findFirst({ where: { id: Number(req.params.id), deletedAt: null } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    const isMod = await prisma.roomModerator.findUnique({
+      where: { roomId_userId: { roomId: Number(req.params.id), userId: req.user.id } }
+    });
+    if (room.ownerId !== req.user.id && req.user.role !== 'admin' && !isMod) return res.status(403).json({ error: 'Forbidden' });
+    const { userId, reason } = req.body;
+    const ban = await prisma.roomBan.upsert({
+      where: { roomId_userId: { roomId: Number(req.params.id), userId: Number(userId) } },
+      update: { bannedBy: req.user.id, reason: reason || '' },
+      create: { roomId: Number(req.params.id), userId: Number(userId), bannedBy: req.user.id, reason: reason || '' }
+    });
+    res.json(ban);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+router.delete('/:id/bans/:userId', requireAuth, async (req, res) => {
+  try {
+    const room = await prisma.room.findFirst({ where: { id: Number(req.params.id), deletedAt: null } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    if (room.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    await prisma.roomBan.deleteMany({
+      where: { roomId: Number(req.params.id), userId: Number(req.params.userId) }
+    });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
 module.exports = router;

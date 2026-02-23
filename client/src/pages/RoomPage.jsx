@@ -13,7 +13,6 @@ const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '�
 function ChatMessage({ msg, onDelete, canModerate }) {
   const roleColors = { admin: '#d4af37', vip: '#a855f7', user: '#9ca3af' };
   const color = roleColors[msg.user?.role] || '#9ca3af';
-
   return (
     <div className="flex gap-2 group py-0.5">
       <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-cinema-dark mt-0.5"
@@ -29,9 +28,7 @@ function ChatMessage({ msg, onDelete, canModerate }) {
       </div>
       {canModerate && (
         <button onClick={() => onDelete(msg.id)}
-          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity flex-shrink-0">
-          ✕
-        </button>
+          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
       )}
     </div>
   );
@@ -54,31 +51,35 @@ export default function RoomPage() {
     chatEnabled: true, spamProtectionEnabled: true, spamCooldownSeconds: 3
   });
   const [isHost, setIsHost] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [needPassword, setNeedPassword] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [spamCooldown, setSpamCooldown] = useState(0);
   const [hostDisconnected, setHostDisconnected] = useState(false);
+  const [notification, setNotification] = useState('');
 
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
   const spamTimerRef = useRef(null);
+
+  const showNotif = (msg, duration = 3000) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(''), duration);
+  };
 
   useEffect(() => {
     const fetchRoom = async () => {
       try {
         const res = await axios.get(`/api/rooms/${id}`);
         setRoom(res.data);
-        if (res.data.isLocked) {
-          setNeedPassword(true);
-        } else {
-          setUnlocked(true);
-        }
-      } catch {
-        navigate('/');
-      }
+        if (user && res.data.ownerId === user.id) setIsOwner(true);
+        if (res.data.isLocked) setNeedPassword(true);
+        else setUnlocked(true);
+      } catch { navigate('/'); }
     };
     fetchRoom();
-  }, [id, navigate]);
+  }, [id, navigate, user]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -90,7 +91,6 @@ export default function RoomPage() {
 
     const socket = io({ auth: { token } });
     socketRef.current = socket;
-
     socket.emit('join_room', id);
 
     if (user && room.ownerId === user.id) {
@@ -99,20 +99,29 @@ export default function RoomPage() {
 
     socket.on('host_granted', () => {
       setIsHost(true);
+      setIsOwner(true);
       setHostDisconnected(false);
+    });
+
+    socket.on('moderator_granted', () => {
+      setIsModerator(true);
+      showNotif('🛡️ Oda yöneticisi oldunuz');
+    });
+
+    socket.on('moderator_removed', () => {
+      setIsModerator(false);
+      showNotif('🛡️ Yöneticilik yetkisi alındı');
     });
 
     socket.on('room_state', (state) => {
       setRoomState(prev => ({ ...prev, ...state }));
-      if (!state.hostConnected && room.ownerId && room.ownerId !== user?.id) {
-        setHostDisconnected(true);
-      } else if (state.hostConnected) {
-        setHostDisconnected(false);
-      }
+      if (!state.hostConnected && !isOwner) setHostDisconnected(true);
+      else if (state.hostConnected) setHostDisconnected(false);
+      if (state.isModerator) setIsModerator(true);
     });
 
     socket.on('host_changed', ({ hostConnected }) => {
-      if (!hostConnected && room.ownerId !== user?.id) {
+      if (!hostConnected) {
         setHostDisconnected(true);
         setRoomState(prev => ({ ...prev, isPlaying: false, hostConnected: false }));
       } else {
@@ -130,14 +139,12 @@ export default function RoomPage() {
     });
 
     socket.on('new_message', (msg) => setMessages(prev => [...prev, msg]));
-
     socket.on('participants', (list) => setParticipants(list));
-
     socket.on('message_deleted', ({ messageId }) =>
       setMessages(prev => prev.filter(m => m.id !== messageId)));
 
     socket.on('new_reaction', (data) => {
-      const rid = Date.now();
+      const rid = Date.now() + Math.random();
       setReactions(prev => [...prev, { ...data, rid }]);
       setTimeout(() => setReactions(prev => prev.filter(r => r.rid !== rid)), 3000);
     });
@@ -153,12 +160,32 @@ export default function RoomPage() {
       }, 1000);
     });
 
+    socket.on('you_are_kicked', () => {
+      alert('Oda sahibi tarafından odadan atıldınız.');
+      navigate('/');
+    });
+
+    socket.on('you_are_banned', ({ reason }) => {
+      alert(`Bu odadan yasaklandınız.${reason ? ` Sebep: ${reason}` : ''}`);
+      navigate('/');
+    });
+
+    socket.on('user_kicked', ({ userId }) => {
+      if (user && userId !== user.id) showNotif('Bir kullanıcı odadan atıldı');
+    });
+
+    socket.on('user_banned', ({ userId }) => {
+      if (user && userId !== user.id) showNotif('Bir kullanıcı yasaklandı');
+    });
+
+    socket.on('moderator_assigned', ({ userId }) => {
+      if (user && userId !== user.id) showNotif('Bir kullanıcıya yönetici yetkisi verildi');
+    });
+
     socket.on('room_deleted', () => {
       alert('Bu oda kapatıldı.');
       navigate('/');
     });
-
-    socket.on('disconnect', () => {});
 
     socket.emit('player_sync_request', { roomId: id });
 
@@ -168,22 +195,20 @@ export default function RoomPage() {
     };
   }, [id, token, user, unlocked, room?.ownerId]);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleStateChange = useCallback((update) => {
-    if (!isHost) return;
+    if (!isHost && !isModerator) return;
     setRoomState(prev => ({ ...prev, ...update }));
     socketRef.current?.emit('room_state_update', { roomId: id, ...update });
-  }, [isHost, id]);
+  }, [isHost, isModerator, id]);
 
   const handleUrlChange = useCallback((streamUrl) => {
-    if (!isHost) return;
+    if (!isHost && !isModerator) return;
     const providerType = streamUrl.includes('youtube.com') || streamUrl.includes('youtu.be') ? 'youtube' : 'external';
     socketRef.current?.emit('url_changed', { roomId: id, streamUrl, providerType });
     setRoom(prev => prev ? { ...prev, streamUrl, providerType } : prev);
-  }, [isHost, id]);
+  }, [isHost, isModerator, id]);
 
   const handleSettingsChange = useCallback((settings) => {
     setRoomState(prev => ({ ...prev, ...settings }));
@@ -191,9 +216,7 @@ export default function RoomPage() {
 
   const sendMessage = (e) => {
     e.preventDefault();
-    if (!newMsg.trim() || !user) return;
-    if (spamCooldown > 0) return;
-    if (!roomState.chatEnabled) return;
+    if (!newMsg.trim() || !user || spamCooldown > 0 || !roomState.chatEnabled) return;
     socketRef.current?.emit('send_message', { roomId: id, content: newMsg });
     setNewMsg('');
   };
@@ -206,6 +229,9 @@ export default function RoomPage() {
     socketRef.current?.emit('admin_delete_message', { roomId: id, messageId });
   };
 
+  const canControl = isHost || isModerator;
+  const canModerate = canControl || user?.role === 'admin';
+
   if (!room) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -217,22 +243,28 @@ export default function RoomPage() {
   if (needPassword && !unlocked) {
     return (
       <PasswordPrompt
-        roomId={id}
-        roomTitle={room.title}
-        onSuccess={(unlockedRoom) => {
-          setRoom(unlockedRoom);
-          setNeedPassword(false);
-          setUnlocked(true);
-        }}
+        roomId={id} roomTitle={room.title}
+        onSuccess={(unlockedRoom) => { setRoom(unlockedRoom); setNeedPassword(false); setUnlocked(true); }}
         onClose={() => navigate('/')}
       />
     );
   }
 
-  const canModerate = isHost || user?.role === 'admin';
+  const tabs = [
+    { key: 'chat', label: '💬 Sohbet' },
+    { key: 'participants', label: `👥 (${participants.length})` },
+    ...(canControl ? [{ key: 'host', label: isOwner ? '👑 Sahip' : '🛡️ Yönetici' }] : [])
+  ];
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
+      {notification && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 text-xs px-4 py-2 rounded-full"
+          style={{ background: 'rgba(212,175,55,0.9)', color: '#0f0f14', fontWeight: 600 }}>
+          {notification}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gold-DEFAULT/10 flex-shrink-0"
         style={{ background: 'rgba(15,15,20,0.98)' }}>
         <Link to="/" className="text-gray-400 hover:text-gold-DEFAULT transition-colors flex-shrink-0">
@@ -244,20 +276,23 @@ export default function RoomPage() {
           <div className="flex items-center gap-2">
             <h1 className="font-bold text-white text-sm truncate">🎥 {room.title}</h1>
             {room.isLocked && <span className="text-xs text-gray-400">🔒</span>}
-            {room.isTrending && <span className="text-xs text-gold-DEFAULT">🔥</span>}
-            {isHost && (
+            {isOwner && (
               <span className="text-xs font-bold px-1.5 py-0.5 rounded cinzel"
                 style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)', fontSize: '10px' }}>
-                HOST
+                SAHİP
+              </span>
+            )}
+            {isModerator && !isOwner && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(59,130,246,0.2)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.3)', fontSize: '10px' }}>
+                YÖNETİCİ
               </span>
             )}
           </div>
           {room.movieTitle && <p className="text-xs text-gray-400 truncate">{room.movieTitle}</p>}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {roomState.hostConnected && (
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-          )}
+          {roomState.hostConnected && <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>}
           <span className="text-xs text-gray-400">{participants.length}</span>
         </div>
       </div>
@@ -265,7 +300,7 @@ export default function RoomPage() {
       <div className="flex flex-1 overflow-hidden min-h-0">
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <div className="relative flex-shrink-0" style={{ height: '44%', minHeight: '180px', maxHeight: '320px' }}>
-            {hostDisconnected && !isHost && (
+            {hostDisconnected && !canControl && (
               <div className="absolute inset-0 z-10 flex items-center justify-center"
                 style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}>
                 <div className="text-center p-4">
@@ -275,20 +310,18 @@ export default function RoomPage() {
                 </div>
               </div>
             )}
-
             <div className="w-full h-full">
               {unlocked && (
                 <VideoPlayer
                   streamUrl={room.streamUrl}
                   providerType={room.providerType || 'youtube'}
-                  isHost={isHost}
+                  isHost={canControl}
                   roomState={roomState}
                   onStateChange={handleStateChange}
                   onUrlChange={handleUrlChange}
                 />
               )}
             </div>
-
             <div className="absolute top-2 right-2 flex gap-1 pointer-events-none">
               {reactions.map(r => (
                 <div key={r.rid} className="text-xl animate-bounce pointer-events-none">{r.reaction}</div>
@@ -300,22 +333,20 @@ export default function RoomPage() {
             style={{ background: 'rgba(15,15,20,0.9)' }}>
             {REACTIONS.map(r => (
               <button key={r} onClick={() => sendReaction(r)}
-                className="text-lg hover:scale-125 transition-transform px-0.5 flex-shrink-0">
-                {r}
-              </button>
+                className="text-lg hover:scale-125 transition-transform px-0.5 flex-shrink-0">{r}</button>
             ))}
           </div>
 
           <div className="flex border-b border-gold-DEFAULT/10 flex-shrink-0">
-            {['chat', 'participants', ...(isHost ? ['host'] : [])].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
+            {tabs.map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 className="flex-1 py-2 text-xs font-semibold transition-colors"
                 style={{
-                  color: activeTab === tab ? '#d4af37' : '#6b7280',
-                  borderBottom: activeTab === tab ? '2px solid #d4af37' : '2px solid transparent',
+                  color: activeTab === tab.key ? '#d4af37' : '#6b7280',
+                  borderBottom: activeTab === tab.key ? '2px solid #d4af37' : '2px solid transparent',
                   fontSize: '11px'
                 }}>
-                {tab === 'chat' ? `💬 Sohbet` : tab === 'participants' ? `👥 (${participants.length})` : `🎬 Host`}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -334,29 +365,22 @@ export default function RoomPage() {
                   ))}
                   <div ref={chatEndRef} />
                 </div>
-
                 {user && roomState.chatEnabled ? (
                   <form onSubmit={sendMessage}
                     className="flex gap-1.5 p-2 border-t border-gold-DEFAULT/10 flex-shrink-0">
                     <div className="flex-1 relative">
-                      <input
-                        value={newMsg} onChange={e => setNewMsg(e.target.value)}
+                      <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
                         placeholder={spamCooldown > 0 ? `${spamCooldown}s bekleyin...` : 'Mesaj yaz...'}
-                        maxLength={500}
-                        disabled={spamCooldown > 0}
+                        maxLength={500} disabled={spamCooldown > 0}
                         className="w-full px-3 py-2 rounded-xl text-white text-xs outline-none disabled:opacity-50"
                         style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${spamCooldown > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(212,175,55,0.2)'}` }}
                       />
                       {spamCooldown > 0 && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-red-400 font-bold">
-                          {spamCooldown}s
-                        </div>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-red-400 font-bold">{spamCooldown}s</div>
                       )}
                     </div>
                     <button type="submit" disabled={spamCooldown > 0}
-                      className="btn-gold px-3 py-2 text-xs disabled:opacity-40 flex-shrink-0">
-                      ↑
-                    </button>
+                      className="btn-gold px-3 py-2 text-xs disabled:opacity-40 flex-shrink-0">↑</button>
                   </form>
                 ) : !user ? (
                   <div className="p-2 border-t border-gold-DEFAULT/10 text-center text-xs text-gray-500 flex-shrink-0">
@@ -367,7 +391,7 @@ export default function RoomPage() {
             )}
 
             {activeTab === 'participants' && (
-              <div className="overflow-y-auto h-full p-2">
+              <div className="overflow-y-auto h-full p-2 space-y-1">
                 {participants.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/5">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-cinema-dark flex-shrink-0"
@@ -375,10 +399,11 @@ export default function RoomPage() {
                       {(p.username || 'U')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-white truncate">{p.username}</div>
-                      <div className="text-xs text-gray-500">
-                        {p.role === 'admin' ? '⚙️' : p.vip ? '💎' : '🎬'}
-                        {room.ownerId === p.id ? <span className="text-gold-DEFAULT ml-1">Host</span> : null}
+                      <div className="text-xs text-white truncate flex items-center gap-1">
+                        {p.username}
+                        {p.isOwner && <span className="text-gold-DEFAULT">👑</span>}
+                        {p.isModerator && !p.isOwner && <span className="text-blue-400">🛡️</span>}
+                        {p.vip && <span className="text-purple-400">💎</span>}
                       </div>
                     </div>
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
@@ -387,13 +412,15 @@ export default function RoomPage() {
               </div>
             )}
 
-            {activeTab === 'host' && isHost && (
+            {activeTab === 'host' && canControl && (
               <div className="overflow-y-auto h-full p-2">
                 <HostControlsPanel
                   room={room}
                   socket={socketRef.current}
                   roomState={roomState}
                   onSettingsChange={handleSettingsChange}
+                  participants={participants}
+                  isOwner={isOwner}
                 />
               </div>
             )}
