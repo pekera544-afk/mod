@@ -40,8 +40,15 @@ model Settings {
   showWhatsapp   Boolean  @default(true)
   showTelegram   Boolean  @default(true)
   showSupport    Boolean  @default(true)
-  wolfImageUrl   String   @default("")
-  updatedAt      DateTime @updatedAt
+  wolfImageUrl        String   @default("")
+  heroCardSubtitle    String   @default("Sesin Gücü Bizde!")
+  heroCardStat1Icon   String   @default("🔒")
+  heroCardStat1Value  String   @default("145")
+  heroCardStat1Label  String   @default("Aktif Yayıncı")
+  heroCardStat2Icon   String   @default("🏆")
+  heroCardStat2Value  String   @default("98,750 ₺")
+  heroCardStat2Label  String   @default("Bu Ayki Kazanç")
+  updatedAt           DateTime @updatedAt
 }
 
 model PwaSettings {

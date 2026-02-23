@@ -158,6 +158,94 @@ export default function AdminSettings() {
         </div>
 
         <div className="glass-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">
+            ✏️ Hero Kart Yazıları
+          </h3>
+          <p className="text-xs text-gray-500">Ana sayfadaki MOD CLUB kartının içindeki tüm yazıları buradan düzenleyin.</p>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Alt Yazı (örn: "Sesin Gücü Bizde!")</label>
+            <input
+              type="text" value={form.heroCardSubtitle || ''}
+              onChange={e => setForm(p => ({ ...p, heroCardSubtitle: e.target.value }))}
+              placeholder="Sesin Gücü Bizde!"
+              className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+            />
+          </div>
+
+          <div className="p-3 rounded-xl space-y-3" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.1)' }}>
+            <p className="text-xs font-semibold text-gold-DEFAULT">📊 İstatistik Satırı 1</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">İkon (emoji)</label>
+                <input type="text" value={form.heroCardStat1Icon || ''} maxLength={4}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat1Icon: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-center"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Değer (bold)</label>
+                <input type="text" value={form.heroCardStat1Value || ''}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat1Value: e.target.value }))}
+                  placeholder="145"
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Etiket</label>
+                <input type="text" value={form.heroCardStat1Label || ''}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat1Label: e.target.value }))}
+                  placeholder="Aktif Yayıncı"
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+            </div>
+            <div className="text-xs text-gray-600 flex items-center gap-1">
+              <span>Önizleme:</span>
+              <span className="px-1 py-0.5 rounded" style={{ background: 'rgba(212,175,55,0.1)', color: '#9ca3af' }}>
+                {form.heroCardStat1Icon} <strong className="text-white">{form.heroCardStat1Value}</strong> {form.heroCardStat1Label}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl space-y-3" style={{ background: 'rgba(155,89,182,0.04)', border: '1px solid rgba(155,89,182,0.1)' }}>
+            <p className="text-xs font-semibold" style={{ color: '#c084fc' }}>📊 İstatistik Satırı 2</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">İkon (emoji)</label>
+                <input type="text" value={form.heroCardStat2Icon || ''} maxLength={4}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat2Icon: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-center"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Değer (bold)</label>
+                <input type="text" value={form.heroCardStat2Value || ''}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat2Value: e.target.value }))}
+                  placeholder="98,750 ₺"
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Etiket</label>
+                <input type="text" value={form.heroCardStat2Label || ''}
+                  onChange={e => setForm(p => ({ ...p, heroCardStat2Label: e.target.value }))}
+                  placeholder="Bu Ayki Kazanç"
+                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+              </div>
+            </div>
+            <div className="text-xs text-gray-600 flex items-center gap-1">
+              <span>Önizleme:</span>
+              <span className="px-1 py-0.5 rounded" style={{ background: 'rgba(155,89,182,0.1)', color: '#9ca3af' }}>
+                {form.heroCardStat2Icon} <strong className="text-white">{form.heroCardStat2Value}</strong> {form.heroCardStat2Label}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">Marka Ayarları</h3>
           {brandFields.map(f => (
             <div key={f.key}>

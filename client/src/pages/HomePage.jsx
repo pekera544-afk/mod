@@ -350,20 +350,39 @@ export default function HomePage() {
                     {settings?.siteTitle || brand.name}
                   </div>
                   <div className="text-sm mb-3">
-                    <span className="text-gray-300">Sesin Gücü </span>
-                    <span className="font-black italic" style={{ color: '#c084fc' }}>Bizde!</span>
+                    <span className="font-black italic" style={{ color: '#c084fc' }}>
+                      {settings?.heroCardSubtitle || 'Sesin Gücü Bizde!'}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-xs text-gray-300">
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                        style={{ background: 'rgba(212,175,55,0.2)' }}>🔒</span>
-                      <span><span className="font-bold text-white">145</span> Aktif Yayıncı</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-300">
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                        style={{ background: 'rgba(155,89,182,0.2)' }}>🏆</span>
-                      <span><span className="font-bold text-white">98,750 ₺</span> Bu Ayki Kazanç</span>
-                    </div>
+                    {(settings?.heroCardStat1Value || settings?.heroCardStat1Label) && (
+                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                        <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                          style={{ background: 'rgba(212,175,55,0.2)' }}>
+                          {settings?.heroCardStat1Icon || '🔒'}
+                        </span>
+                        <span>
+                          {settings?.heroCardStat1Value && (
+                            <span className="font-bold text-white">{settings.heroCardStat1Value} </span>
+                          )}
+                          {settings?.heroCardStat1Label || 'Aktif Yayıncı'}
+                        </span>
+                      </div>
+                    )}
+                    {(settings?.heroCardStat2Value || settings?.heroCardStat2Label) && (
+                      <div className="flex items-center gap-2 text-xs text-gray-300">
+                        <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                          style={{ background: 'rgba(155,89,182,0.2)' }}>
+                          {settings?.heroCardStat2Icon || '🏆'}
+                        </span>
+                        <span>
+                          {settings?.heroCardStat2Value && (
+                            <span className="font-bold text-white">{settings.heroCardStat2Value} </span>
+                          )}
+                          {settings?.heroCardStat2Label || 'Bu Ayki Kazanç'}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs">
                       <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
                         style={{ background: 'rgba(212,175,55,0.2)' }}>✨</span>
