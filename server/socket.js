@@ -497,24 +497,30 @@ function setupSocket(io) {
       } catch {}
     });
 
-    socket.on('room_settings_changed', async ({ roomId, chatEnabled, spamProtectionEnabled, spamCooldownSeconds }) => {
+    socket.on('room_settings_changed', async ({ roomId, chatEnabled, spamProtectionEnabled, spamCooldownSeconds, movieTitle }) => {
       const key = String(roomId);
       if (roomHosts.get(key) !== socket.id) return;
       const state = getRoomState(key);
       if (chatEnabled !== undefined) state.chatEnabled = chatEnabled;
       if (spamProtectionEnabled !== undefined) state.spamProtectionEnabled = spamProtectionEnabled;
       if (spamCooldownSeconds !== undefined) state.spamCooldownSeconds = spamCooldownSeconds;
-      io.to(key).emit('room_settings_changed', {
+      if (movieTitle !== undefined) state.movieTitle = movieTitle;
+      const broadcast = {
         chatEnabled: state.chatEnabled,
         spamProtectionEnabled: state.spamProtectionEnabled,
         spamCooldownSeconds: state.spamCooldownSeconds
-      });
+      };
+      if (movieTitle !== undefined) broadcast.movieTitle = movieTitle;
+      io.to(key).emit('room_settings_changed', broadcast);
       try {
         const updateData = {};
         if (chatEnabled !== undefined) updateData.chatEnabled = chatEnabled;
         if (spamProtectionEnabled !== undefined) updateData.spamProtectionEnabled = spamProtectionEnabled;
         if (spamCooldownSeconds !== undefined) updateData.spamCooldownSeconds = spamCooldownSeconds;
-        await prisma.room.update({ where: { id: Number(roomId) }, data: updateData });
+        if (movieTitle !== undefined) updateData.movieTitle = movieTitle;
+        if (Object.keys(updateData).length > 0) {
+          await prisma.room.update({ where: { id: Number(roomId) }, data: updateData });
+        }
       } catch {}
     });
 
@@ -624,17 +630,27 @@ function setupSocket(io) {
       const trimmed = content.trim().slice(0, 500);
       const key = String(roomId);
       try {
-        const room = await prisma.room.findFirst({ where: { id: Number(roomId), deletedAt: null } });
-        if (!room) return;
-        if (!room.chatEnabled) {
+        const memState = getRoomState(key);
+        const chatEnabled = memState.chatEnabled !== undefined ? memState.chatEnabled : true;
+        const spamProtectionEnabled = memState.spamProtectionEnabled !== undefined ? memState.spamProtectionEnabled : true;
+        const spamCooldownSeconds = memState.spamCooldownSeconds || 3;
+
+        if (!chatEnabled) {
           socket.emit('error', { message: 'Bu odada sohbet devre dışı' });
           return;
         }
+
+        const room = await prisma.room.findFirst({
+          where: { id: Number(roomId), deletedAt: null },
+          select: { id: true, ownerId: true }
+        });
+        if (!room) return;
+
         const isPrivileged = room.ownerId === socket.user.id || socket.user.role === 'admin' || canControl(socket, key);
-        if (room.spamProtectionEnabled && !isPrivileged) {
+        if (spamProtectionEnabled && !isPrivileged) {
           const spamKey = getSpamKey(roomId, socket.user.id);
           const lastTime = spamTracker.get(spamKey) || 0;
-          const cooldown = (room.spamCooldownSeconds || 3) * 1000;
+          const cooldown = spamCooldownSeconds * 1000;
           const now = Date.now();
           if (now - lastTime < cooldown) {
             const remaining = Math.ceil((cooldown - (now - lastTime)) / 1000);

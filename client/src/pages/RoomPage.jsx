@@ -144,6 +144,9 @@ export default function RoomPage() {
 
     socket.on('room_settings_changed', (settings) => {
       setRoomState(prev => ({ ...prev, ...settings }));
+      if (settings.movieTitle !== undefined) {
+        setRoom(prev => prev ? { ...prev, movieTitle: settings.movieTitle } : prev);
+      }
     });
 
     socket.on('url_changed', ({ streamUrl, providerType }) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import CreateRoomModal from '../components/CreateRoomModal';
@@ -32,7 +32,7 @@ function RoomCard({ room, onJoinLocked }) {
 
   return (
     <div onClick={handleClick}
-      className={`p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01] ${isVipRoom ? 'vip-room-card' : ''}`}
+      className={`p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] ${isVipRoom ? 'vip-room-card' : ''}`}
       style={!isVipRoom ? {
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(212,175,55,0.12)',
@@ -140,30 +140,28 @@ function MyRoomBanner({ room, onDelete }) {
             style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.35)' }}>
             👑 Benim Odam
           </span>
-          <div className="flex items-center gap-1.5">
-            {liveCount > 0 && (
-              <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
-                {liveCount} canlı
-              </span>
-            )}
-          </div>
+          {liveCount > 0 && (
+            <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
+              {liveCount} canlı
+            </span>
+          )}
         </div>
         <h3 className="text-white font-bold text-sm mb-0.5">{room.title}</h3>
         {room.movieTitle && <p className="text-xs mb-3" style={{ color: '#d4af37' }}>{room.movieTitle}</p>}
         <div className="flex gap-2">
           <button
             onClick={() => navigate(`/rooms/${room.id}`)}
-            className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
             style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
             ▶ Odama Gir
           </button>
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="px-3 py-2 rounded-xl text-xs transition-all"
+              className="px-4 py-2.5 rounded-xl text-sm transition-all"
               style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
-              🗑️ Kapat
+              🗑️
             </button>
           ) : (
             <div className="flex gap-1.5">
@@ -188,6 +186,7 @@ function MyRoomBanner({ room, onDelete }) {
 export default function RoomsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { socket } = useOutletContext() || {};
   const [rooms, setRooms] = useState([]);
   const [myRoom, setMyRoom] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -206,15 +205,22 @@ export default function RoomsPage() {
 
   const fetchMyRoom = () => {
     if (!user) return;
-    axios.get('/api/rooms/my')
-      .then(r => setMyRoom(r.data))
-      .catch(() => setMyRoom(null));
+    axios.get('/api/rooms/my').then(r => setMyRoom(r.data)).catch(() => setMyRoom(null));
   };
 
+  useEffect(() => { fetchRooms(); fetchMyRoom(); }, [user]);
+
   useEffect(() => {
-    fetchRooms();
-    fetchMyRoom();
-  }, [user]);
+    if (!socket) return;
+    const handleNewRoom = () => fetchRooms();
+    const handleRoomDeleted = () => fetchRooms();
+    socket.on('new_room_opened', handleNewRoom);
+    socket.on('room_deleted', handleRoomDeleted);
+    return () => {
+      socket.off('new_room_opened', handleNewRoom);
+      socket.off('room_deleted', handleRoomDeleted);
+    };
+  }, [socket]);
 
   const otherRooms = rooms.filter(r => !user || r.ownerId !== user.id);
   const filtered = otherRooms
@@ -233,13 +239,14 @@ export default function RoomsPage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-lg mx-auto px-4 pt-4">
+      <div className="max-w-4xl mx-auto px-4 pt-4">
+
         <div className="flex items-center gap-3 mb-4">
           <BackButton />
           <h1 className="cinzel font-bold text-lg gold-text flex-1">🎬 Sinema Odaları</h1>
           {user && !myRoom && (
             <button onClick={() => setShowCreate(true)}
-              className="text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1"
+              className="text-xs px-3 py-2 rounded-full font-bold flex items-center gap-1"
               style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.1))', color: '#d4af37', border: '1px solid rgba(212,175,55,0.5)' }}>
               + Oda Kur
             </button>
@@ -247,20 +254,17 @@ export default function RoomsPage() {
         </div>
 
         {myRoom && (
-          <MyRoomBanner
-            room={myRoom}
-            onDelete={() => { setMyRoom(null); fetchRooms(); }}
-          />
+          <MyRoomBanner room={myRoom} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
         )}
 
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍 Oda veya film ara..."
-          className="w-full px-4 py-2.5 rounded-xl text-white text-sm outline-none mb-3"
+          className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none mb-3"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
         />
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
           {[
             { key: 'all', label: '🎭 Tümü' },
             { key: 'live', label: '🟢 Canlı' },
@@ -281,9 +285,9 @@ export default function RoomsPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-500 text-sm animate-pulse">Odalar yükleniyor...</div>
+          <div className="text-center py-16 text-gray-500 text-sm animate-pulse">Odalar yükleniyor...</div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12 space-y-3">
+          <div className="text-center py-16 space-y-3">
             <div className="text-4xl">🎬</div>
             <p className="text-gray-500 text-sm">{search ? 'Arama sonucu bulunamadı' : 'Henüz başka aktif oda yok'}</p>
             {user && !search && !myRoom && (
@@ -295,7 +299,7 @@ export default function RoomsPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filtered.map(r => (
               <RoomCard key={r.id} room={r} onJoinLocked={setLockedRoom} />
             ))}

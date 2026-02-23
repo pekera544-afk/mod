@@ -28,7 +28,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-lg mx-auto px-4 pt-4">
+      <div className="max-w-3xl mx-auto px-4 pt-4">
         <div className="flex items-center gap-3 mb-6">
           <BackButton />
           <h1 className="cinzel font-bold text-lg gold-text">📢 Duyurular</h1>

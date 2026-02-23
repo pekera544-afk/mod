@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -10,10 +10,10 @@ import LandingPage from './LandingPage';
 
 function StatCard({ icon, value, label, color = '#d4af37' }) {
   return (
-    <div className="flex-1 min-w-[70px] rounded-2xl p-3 flex flex-col items-center gap-1 text-center"
+    <div className="flex-1 min-w-0 rounded-2xl p-3 flex flex-col items-center gap-1 text-center"
       style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${color}30`, backdropFilter: 'blur(8px)' }}>
       <span className="text-xl">{icon}</span>
-      <span className="font-black text-base" style={{ color }}>{value}</span>
+      <span className="font-black text-base sm:text-lg" style={{ color }}>{value}</span>
       <span className="text-gray-400 text-xs leading-tight">{label}</span>
     </div>
   );
@@ -27,7 +27,7 @@ function MemberCard({ user, rank, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="flex-1 min-w-[100px] rounded-2xl p-4 flex flex-col items-center gap-2 relative overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
+      className="flex-1 min-w-[90px] rounded-2xl p-3 sm:p-4 flex flex-col items-center gap-2 relative overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
       style={{
         background: `linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))`,
         border: `1.5px solid ${borderColor}`,
@@ -37,11 +37,11 @@ function MemberCard({ user, rank, onClick }) {
       }}>
       <div className="absolute inset-0 opacity-10"
         style={{ background: `radial-gradient(circle at 50% 30%, ${borderColor}, transparent 70%)` }} />
-      <div className="absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full"
+      <div className="absolute top-1.5 left-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full"
         style={{ background: `${borderColor}20`, color: borderColor, border: `1px solid ${borderColor}40` }}>
         {rank === 1 ? '👑 #1' : rank === 2 ? '🥈 #2' : '🥉 #3'}
       </div>
-      <div className="w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl mt-3 relative"
+      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center font-black text-xl sm:text-2xl mt-3 relative flex-shrink-0"
         style={{ background: `linear-gradient(135deg, ${borderColor}, ${borderColor}80)`, color: '#0f0f14', boxShadow: `0 0 15px ${glowColor}` }}>
         {user.avatarUrl
           ? <img src={user.avatarUrl} alt={user.username} className="w-full h-full rounded-full object-cover" />
@@ -49,11 +49,11 @@ function MemberCard({ user, rank, onClick }) {
         }
       </div>
       <div>
-        <div className="font-black text-sm text-white text-center tracking-wide uppercase">{user.username}</div>
-        <div className="text-xs text-center" style={{ color: borderColor }}>Lv.{user.level} • {user.xp} XP</div>
+        <div className="font-black text-xs sm:text-sm text-white text-center tracking-wide uppercase truncate max-w-[80px]">{user.username}</div>
+        <div className="text-xs text-center" style={{ color: borderColor }}>Lv.{user.level}</div>
       </div>
       {user.vip && (
-        <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold"
           style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
           VIP 💎
         </span>
@@ -64,8 +64,8 @@ function MemberCard({ user, rank, onClick }) {
 
 function QuickAccessCard({ icon, label, to, color = '#d4af37' }) {
   return (
-    <Link to={to || '/'} className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all hover:scale-105"
-      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${color}25`, minWidth: '64px' }}>
+    <Link to={to || '/'} className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all hover:scale-105 flex-shrink-0"
+      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${color}25`, minWidth: '60px' }}>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
         style={{ background: `${color}15`, border: `1px solid ${color}30`, boxShadow: `0 0 10px ${color}20` }}>
         {icon}
@@ -125,13 +125,13 @@ function MyRoomCard({ room, onDelete }) {
 
       <div className="flex gap-2 px-3 pb-3">
         <button onClick={() => navigate(`/rooms/${room.id}`)}
-          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
+          className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
           style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
           🎬 Odama Git
         </button>
         {!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)}
-            className="px-3 py-2 rounded-xl text-xs text-red-400 transition-all"
+            className="px-3 py-2 rounded-xl text-sm text-red-400 transition-all"
             style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
             🗑️
           </button>
@@ -167,18 +167,18 @@ function RoomRow({ room, onJoinLocked }) {
 
   return (
     <div onClick={handleClick}
-      className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
+      className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.12)' }}>
       {room.posterUrl ? (
-        <img src={room.posterUrl} alt={room.title} className="w-10 h-10 object-cover rounded-xl flex-shrink-0" />
+        <img src={room.posterUrl} alt={room.title} className="w-11 h-11 object-cover rounded-xl flex-shrink-0" />
       ) : (
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
           style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
           {room.providerType === 'youtube' ? '▶️' : '🔗'}
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-white font-bold text-sm truncate">{room.title}</span>
           {room.isLocked && <span className="text-xs">🔒</span>}
           {isOwned && <span className="text-xs px-1.5 py-0.5 rounded font-bold"
@@ -191,12 +191,12 @@ function RoomRow({ room, onJoinLocked }) {
       <div className="flex items-center gap-1.5 flex-shrink-0">
         {liveCount > 0 ? (
           <>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
             <span className="text-xs text-green-400 font-semibold">{liveCount}</span>
           </>
         ) : (
           <>
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-600"></span>
+            <span className="w-2 h-2 rounded-full bg-gray-600"></span>
             <span className="text-xs text-gray-500">0</span>
           </>
         )}
@@ -215,7 +215,7 @@ function AnnouncementCard({ ann }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-white text-sm font-bold leading-tight">{ann.titleTR || ann.title}</div>
-        {ann.contentTR && <div className="text-gray-400 text-xs mt-0.5 line-clamp-1">{ann.contentTR}</div>}
+        {ann.contentTR && <div className="text-gray-400 text-xs mt-0.5 line-clamp-2">{ann.contentTR}</div>}
       </div>
     </div>
   );
@@ -225,6 +225,7 @@ export default function HomePage() {
   const { user } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const { socket } = useOutletContext() || {};
   const [rooms, setRooms] = useState([]);
   const [myRoom, setMyRoom] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
@@ -254,9 +255,19 @@ export default function HomePage() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => { fetchMyRoom(); }, [user]);
+
   useEffect(() => {
-    fetchMyRoom();
-  }, [user]);
+    if (!socket) return;
+    const handleNewRoom = () => fetchRooms();
+    const handleRoomDeleted = () => fetchRooms();
+    socket.on('new_room_opened', handleNewRoom);
+    socket.on('room_deleted', handleRoomDeleted);
+    return () => {
+      socket.off('new_room_opened', handleNewRoom);
+      socket.off('room_deleted', handleRoomDeleted);
+    };
+  }, [socket]);
 
   const handleJoinLocked = (room) => {
     if (!user) { navigate('/login'); return; }
@@ -270,7 +281,6 @@ export default function HomePage() {
 
   const totalOnline = rooms.reduce((sum, r) => sum + (r.liveCount || 0), 0);
   const activeRoomCount = rooms.length;
-
   const otherRooms = myRoom ? rooms.filter(r => r.id !== myRoom.id) : rooms;
 
   if (!user) {
@@ -279,185 +289,200 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-5xl mx-auto px-4 pt-4">
 
-        <div className="relative rounded-3xl overflow-hidden p-4 pb-5"
-          style={{
-            background: 'linear-gradient(135deg, #1a0a2e 0%, #2a0a1e 40%, #1e0a0a 70%, #0f0520 100%)',
-            border: '1.5px solid rgba(212,175,55,0.3)',
-            boxShadow: '0 0 40px rgba(212,175,55,0.12), 0 0 80px rgba(155,89,182,0.08)',
-          }}>
-          <div className="absolute inset-0 opacity-20"
-            style={{ background: 'radial-gradient(ellipse at 80% 50%, rgba(155,89,182,0.4), transparent 60%)' }} />
-          <div className="absolute inset-0 opacity-10"
-            style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.5), transparent 60%)' }} />
+        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6 lg:items-start">
 
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="flex-1">
-              <div className="cinzel font-black text-2xl leading-tight mb-0.5"
-                style={{ color: '#d4af37', textShadow: '0 0 20px rgba(212,175,55,0.5)' }}>
-                {settings?.siteTitle || 'YOKO AJANS'}
-              </div>
-              <div className="text-sm mb-3">
-                <span className="text-gray-300">Sesin Gücü </span>
-                <span className="font-black italic" style={{ color: '#c084fc' }}>Bizde!</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 text-xs text-gray-300">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                    style={{ background: 'rgba(212,175,55,0.2)' }}>🔒</span>
-                  <span><span className="font-bold text-white">145</span> Aktif Yayıncı</span>
+          {/* ── MAIN COLUMN ── */}
+          <div className="space-y-4">
+
+            {/* Hero Banner */}
+            <div className="relative rounded-3xl overflow-hidden p-4 pb-5"
+              style={{
+                background: 'linear-gradient(135deg, #1a0a2e 0%, #2a0a1e 40%, #1e0a0a 70%, #0f0520 100%)',
+                border: '1.5px solid rgba(212,175,55,0.3)',
+                boxShadow: '0 0 40px rgba(212,175,55,0.12), 0 0 80px rgba(155,89,182,0.08)',
+              }}>
+              <div className="absolute inset-0 opacity-20"
+                style={{ background: 'radial-gradient(ellipse at 80% 50%, rgba(155,89,182,0.4), transparent 60%)' }} />
+              <div className="absolute inset-0 opacity-10"
+                style={{ background: 'radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.5), transparent 60%)' }} />
+
+              <div className="relative z-10 flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="cinzel font-black text-xl sm:text-2xl leading-tight mb-0.5"
+                    style={{ color: '#d4af37', textShadow: '0 0 20px rgba(212,175,55,0.5)' }}>
+                    {settings?.siteTitle || 'YOKO AJANS'}
+                  </div>
+                  <div className="text-sm mb-3">
+                    <span className="text-gray-300">Sesin Gücü </span>
+                    <span className="font-black italic" style={{ color: '#c084fc' }}>Bizde!</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                        style={{ background: 'rgba(212,175,55,0.2)' }}>🔒</span>
+                      <span><span className="font-bold text-white">145</span> Aktif Yayıncı</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                        style={{ background: 'rgba(155,89,182,0.2)' }}>🏆</span>
+                      <span><span className="font-bold text-white">98,750 ₺</span> Bu Ayki Kazanç</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
+                        style={{ background: 'rgba(212,175,55,0.2)' }}>✨</span>
+                      <span className="text-gray-300">Şu An</span>
+                      <span className="font-black px-2 py-0.5 rounded-lg text-xs"
+                        style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
+                        {activeRoomCount}
+                      </span>
+                      <span className="text-gray-300">Oda Aktif</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-300">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                    style={{ background: 'rgba(155,89,182,0.2)' }}>🏆</span>
-                  <span><span className="font-bold text-white">98,750 ₺</span> Bu Ayki Kazanç</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                    style={{ background: 'rgba(212,175,55,0.2)' }}>✨</span>
-                  <span className="text-gray-300">Şu An</span>
-                  <span className="font-black px-2 py-0.5 rounded-lg text-xs"
-                    style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
-                    {activeRoomCount}
-                  </span>
-                  <span className="text-gray-300">Oda Aktif</span>
+
+                <div className="flex-shrink-0 relative">
+                  {settings?.wolfImageUrl ? (
+                    <img src={settings.wolfImageUrl} alt="emblem"
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
+                      style={{ boxShadow: '0 0 30px rgba(155,89,182,0.6), 0 0 60px rgba(212,175,55,0.3)' }} />
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center relative"
+                      style={{ background: 'radial-gradient(circle, rgba(155,89,182,0.3), rgba(212,175,55,0.1))', boxShadow: '0 0 30px rgba(155,89,182,0.5), 0 0 60px rgba(212,175,55,0.3)' }}>
+                      <div className="absolute inset-0 rounded-full"
+                        style={{ border: '2px solid rgba(212,175,55,0.4)', boxShadow: 'inset 0 0 20px rgba(155,89,182,0.2)' }} />
+                      <span className="text-4xl sm:text-5xl">🐺</span>
+                    </div>
+                  )}
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                    style={{ background: 'linear-gradient(135deg, #d4af37, #b8962a)', color: '#0f0f14', fontWeight: 900 }}>
+                    👑
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex-shrink-0 relative">
-              {settings?.wolfImageUrl ? (
-                <img src={settings.wolfImageUrl} alt="emblem"
-                  className="w-24 h-24 rounded-full object-cover"
-                  style={{ boxShadow: '0 0 30px rgba(155,89,182,0.6), 0 0 60px rgba(212,175,55,0.3)' }} />
-              ) : (
-                <div className="w-24 h-24 rounded-full flex items-center justify-center relative"
-                  style={{ background: 'radial-gradient(circle, rgba(155,89,182,0.3), rgba(212,175,55,0.1))', boxShadow: '0 0 30px rgba(155,89,182,0.5), 0 0 60px rgba(212,175,55,0.3)' }}>
-                  <div className="absolute inset-0 rounded-full"
-                    style={{ border: '2px solid rgba(212,175,55,0.4)', boxShadow: 'inset 0 0 20px rgba(155,89,182,0.2)' }} />
-                  <span className="text-5xl">🐺</span>
+            {/* Active Rooms */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                  <span style={{ color: '#d4af37' }}>🎭</span> Aktif Odalar
+                </h2>
+                {!myRoom ? (
+                  <button onClick={() => setShowCreate(true)}
+                    className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.1))',
+                      color: '#d4af37',
+                      border: '1px solid rgba(212,175,55,0.5)',
+                      boxShadow: '0 0 12px rgba(212,175,55,0.2)',
+                    }}>
+                    🎬 Oda Kur
+                  </button>
+                ) : (
+                  <button onClick={() => navigate(`/rooms/${myRoom.id}`)}
+                    className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
+                    style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
+                    👑 Odam
+                  </button>
+                )}
+              </div>
+
+              {myRoom && (
+                <div className="mb-3">
+                  <MyRoomCard room={myRoom} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
                 </div>
               )}
-              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                style={{ background: 'linear-gradient(135deg, #d4af37, #b8962a)', color: '#0f0f14', fontWeight: 900 }}>
-                👑
+
+              <div className="space-y-2">
+                {otherRooms.length === 0 && !myRoom ? (
+                  <div className="text-center py-8 space-y-3">
+                    <div className="text-gray-600 text-sm">Henüz aktif oda yok</div>
+                    <button onClick={() => setShowCreate(true)}
+                      className="text-sm px-6 py-2.5 rounded-xl font-bold transition-all"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))',
+                        color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)',
+                        boxShadow: '0 0 20px rgba(212,175,55,0.15)',
+                      }}>
+                      🎬 İlk Odayı Sen Kur
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {otherRooms.map(r => <RoomRow key={r.id} room={r} onJoinLocked={handleJoinLocked} />)}
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Announcements */}
+            {announcements.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                    <span style={{ color: '#d4af37' }}>🔔</span> Duyurular
+                  </h2>
+                  <Link to="/announcements" className="text-xs px-3 py-1 rounded-full transition-colors"
+                    style={{ background: 'rgba(212,175,55,0.08)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
+                    Tümünü Gör →
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {announcements.map(a => <AnnouncementCard key={a.id} ann={a} />)}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="flex gap-2">
-          <StatCard icon="👥" value={(totalMembers || 3570).toLocaleString()} label="Toplam Üye" />
-          <StatCard icon="🟢" value={totalOnline || 0} label="Online" color="#22c55e" />
-          <StatCard icon="💎" value={vipCount || 124} label="VIP Üye" color="#c084fc" />
-          <StatCard icon="🎬" value={activeRoomCount} label="Aktif Oda" />
-        </div>
+          {/* ── SIDE COLUMN (desktop only / stacked on mobile) ── */}
+          <div className="space-y-4 mt-4 lg:mt-0">
 
-        {topUsers.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-white text-sm flex items-center gap-2">
-                <span style={{ color: '#d4af37' }}>⚡</span> Ajansta Öne Çıkanlar
-              </h2>
-              <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
-                style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
-                Tümü →
-              </Link>
-            </div>
+            {/* Stats */}
             <div className="flex gap-2">
-              {topUsers.map((u, i) => (
-                <MemberCard key={u.id} user={u} rank={i + 1} onClick={() => setProfileUserId(u.id)} />
-              ))}
+              <StatCard icon="👥" value={(totalMembers || 3570).toLocaleString()} label="Üye" />
+              <StatCard icon="🟢" value={totalOnline || 0} label="Online" color="#22c55e" />
+              <StatCard icon="💎" value={vipCount || 124} label="VIP" color="#c084fc" />
+              <StatCard icon="🎬" value={activeRoomCount} label="Oda" />
             </div>
-          </div>
-        )}
 
-        <div>
-          <h2 className="font-bold text-white text-sm mb-2 flex items-center gap-2">
-            <span style={{ color: '#d4af37' }}>⚡</span> Hızlı Erişim
-          </h2>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <QuickAccessCard icon="⚔️" label="PK / Etkinlikler" color="#d4af37" />
-            <QuickAccessCard icon="💬" label="Sohbet" color="#22c55e" />
-            <QuickAccessCard icon="🎬" label="Film & Sinema" to="/#rooms" color="#c084fc" />
-            <QuickAccessCard icon="👑" label="VIP" color="#d4af37" />
-            <QuickAccessCard icon="📱" label="Uygulamalar" color="#60a5fa" />
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-white text-sm flex items-center gap-2">
-              <span style={{ color: '#d4af37' }}>🎭</span> Aktif Odalar
-            </h2>
-            {!myRoom ? (
-              <button onClick={() => setShowCreate(true)}
-                className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.1))',
-                  color: '#d4af37',
-                  border: '1px solid rgba(212,175,55,0.5)',
-                  boxShadow: '0 0 12px rgba(212,175,55,0.2)',
-                }}>
-                🎬 Oda Kur
-              </button>
-            ) : (
-              <button onClick={() => navigate(`/rooms/${myRoom.id}`)}
-                className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
-                style={{
-                  background: 'rgba(212,175,55,0.15)',
-                  color: '#d4af37',
-                  border: '1px solid rgba(212,175,55,0.3)',
-                }}>
-                👑 Odam
-              </button>
-            )}
-          </div>
-
-          {myRoom && (
-            <div className="mb-3">
-              <MyRoomCard room={myRoom} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {otherRooms.length === 0 && !myRoom ? (
-              <div className="text-center py-6 space-y-3">
-                <div className="text-gray-600 text-sm">Henüz aktif oda yok</div>
-                <button onClick={() => setShowCreate(true)}
-                  className="text-sm px-6 py-2.5 rounded-xl font-bold transition-all"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))',
-                    color: '#d4af37',
-                    border: '1px solid rgba(212,175,55,0.4)',
-                    boxShadow: '0 0 20px rgba(212,175,55,0.15)',
-                  }}>
-                  🎬 İlk Odayı Sen Kur
-                </button>
+            {/* Top Users */}
+            {topUsers.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                    <span style={{ color: '#d4af37' }}>⚡</span> Öne Çıkanlar
+                  </h2>
+                  <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
+                    style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
+                    Tümü →
+                  </Link>
+                </div>
+                <div className="flex gap-2">
+                  {topUsers.map((u, i) => (
+                    <MemberCard key={u.id} user={u} rank={i + 1} onClick={() => setProfileUserId(u.id)} />
+                  ))}
+                </div>
               </div>
-            ) : (
-              otherRooms.map(r => <RoomRow key={r.id} room={r} onJoinLocked={handleJoinLocked} />)
             )}
-          </div>
-        </div>
 
-        {announcements.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-white text-sm flex items-center gap-2">
-                <span style={{ color: '#d4af37' }}>🔔</span> Duyurular
+            {/* Quick Access */}
+            <div>
+              <h2 className="font-bold text-white text-sm mb-2 flex items-center gap-2">
+                <span style={{ color: '#d4af37' }}>⚡</span> Hızlı Erişim
               </h2>
-              <Link to="/announcements" className="text-xs px-3 py-1 rounded-full transition-colors"
-                style={{ background: 'rgba(212,175,55,0.08)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
-                Tümünü Gör →
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {announcements.map(a => <AnnouncementCard key={a.id} ann={a} />)}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <QuickAccessCard icon="⚔️" label="Etkinlikler" color="#d4af37" />
+                <QuickAccessCard icon="💬" label="Sohbet" color="#22c55e" />
+                <QuickAccessCard icon="🎬" label="Sinema" to="/rooms" color="#c084fc" />
+                <QuickAccessCard icon="👑" label="VIP" color="#d4af37" />
+                <QuickAccessCard icon="🏆" label="Sıralama" to="/leaderboard" color="#60a5fa" />
+              </div>
             </div>
           </div>
-        )}
+
+        </div>
       </div>
 
       {profileUserId && (

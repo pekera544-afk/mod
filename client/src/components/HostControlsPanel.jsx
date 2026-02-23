@@ -210,9 +210,22 @@ export default function HostControlsPanel({ room, socket, roomState, onSettingsC
               <ToggleBtn value={roomState?.chatEnabled !== false} onChange={v => toggleSetting('chatEnabled', v)} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-300">🛡️ Anti-Spam (3sn)</span>
+              <span className="text-xs text-gray-300">🛡️ Anti-Spam</span>
               <ToggleBtn value={roomState?.spamProtectionEnabled !== false} onChange={v => toggleSetting('spamProtectionEnabled', v)} />
             </div>
+            {roomState?.spamProtectionEnabled !== false && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 flex-1">Bekleme (saniye):</span>
+                <input
+                  type="number" min={1} max={30}
+                  defaultValue={roomState?.spamCooldownSeconds || 3}
+                  onBlur={e => toggleSetting('spamCooldownSeconds', Number(e.target.value))}
+                  onKeyDown={e => e.key === 'Enter' && toggleSetting('spamCooldownSeconds', Number(e.target.value))}
+                  className="w-14 px-2 py-1 rounded-lg text-white text-xs outline-none text-center"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+                />
+              </div>
+            )}
           </div>
 
           {isOwner && (

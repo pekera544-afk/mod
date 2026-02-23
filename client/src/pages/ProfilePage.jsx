@@ -512,12 +512,15 @@ export default function ProfilePage() {
   const isFriend = friends.some(f => f.id === profileId);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6 pb-24">
+    <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
       <BackButton />
+
+      <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-6 lg:items-start">
+      <div>
 
       <div className="glass-card p-5 mb-4">
         <div className="flex items-start gap-4">
-          <UserAvatar user={profile} size={72} />
+          <UserAvatar user={profile} size={80} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -597,7 +600,7 @@ export default function ProfilePage() {
       )}
 
       {isMe && (
-        <div className="mb-4">
+        <div className="mb-4 lg:hidden">
           <h3 className="text-sm font-bold text-white mb-3 px-1">⚙️ Profil Ayarları</h3>
           <MyProfileSettings profile={profile} onUpdated={handleProfileUpdated} />
         </div>
@@ -608,7 +611,7 @@ export default function ProfilePage() {
         {friends.length === 0 ? (
           <div className="text-xs text-gray-600 text-center py-4">Henüz arkadaş yok</div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2">
             {friends.map(f => (
               <div key={f.id} onClick={() => navigate(`/profile/${f.id}`)}
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors">
@@ -622,6 +625,18 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      </div>{/* end left column */}
+
+      {/* Right column: settings (desktop only) */}
+      {isMe && (
+        <div className="hidden lg:block mt-0">
+          <h3 className="text-sm font-bold text-white mb-3 px-1">⚙️ Profil Ayarları</h3>
+          <MyProfileSettings profile={profile} onUpdated={handleProfileUpdated} />
+        </div>
+      )}
+
+      </div>{/* end grid */}
     </div>
   );
 }
