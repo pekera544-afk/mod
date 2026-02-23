@@ -7,6 +7,7 @@ import CreateRoomModal from '../components/CreateRoomModal';
 import PasswordPrompt from '../components/PasswordPrompt';
 import UserProfileCard from '../components/UserProfileCard';
 import LandingPage from './LandingPage';
+import { brand } from '../config/brand';
 
 function StatCard({ icon, value, label, color = '#d4af37' }) {
   return (
@@ -312,7 +313,7 @@ export default function HomePage() {
                 <div className="flex-1">
                   <div className="cinzel font-black text-xl sm:text-2xl leading-tight mb-0.5"
                     style={{ color: '#d4af37', textShadow: '0 0 20px rgba(212,175,55,0.5)' }}>
-                    {settings?.siteTitle || 'YOKO AJANS'}
+                    {settings?.siteTitle || brand.name}
                   </div>
                   <div className="text-sm mb-3">
                     <span className="text-gray-300">Sesin Gücü </span>

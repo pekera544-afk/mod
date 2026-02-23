@@ -1,0 +1,82 @@
+You are a senior full-stack engineer. Do NOT change the existing layout, logic, or design. Only enhance structure and PWA behavior.
+
+TASK: Implement centralized branding control + fully installable standalone PWA without breaking current functionality.
+
+PART 1 — CENTRALIZED BRAND CONFIG
+
+1) Create: client/src/config/brand.ts (or brand.js if TS not used)
+
+Export a single object:
+
+export const brand = {
+  name: "MOD CLUB",
+  shortName: "MOD",
+  appTitle: "MOD CLUB",
+  footerText: "MOD CLUB © 2025",
+  companyName: "MOD CLUB",
+  slogans: {
+    tr: "Birlikte izle, Birlikte Hisset.",
+    en: "Watch Together, Feel Together."
+  }
+};
+
+2) Replace ALL hardcoded strings like:
+- "MOD CLUB"
+- "YOKO AJANS"
+- "YOKO AJANS © 2025"
+- Any brand title in header, sidebar, footer, login, admin
+
+With values from brand config.
+
+3) Update document.title globally to use:
+brand.appTitle
+
+4) Ensure future renaming only requires editing brand.ts.
+
+Return list of modified files.
+
+--------------------------------------------------
+
+PART 2 — PROPER STANDALONE PWA (REAL APP INSTALL)
+
+Do NOT break current PWA admin panel.
+
+1) Ensure manifest.json includes:
+
+{
+  "name": brand.name,
+  "short_name": brand.shortName,
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#0f0f14",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+
+2) Make sure service worker:
+- Registers in production
+- Uses cache-first strategy for static assets
+- Uses network-first for API
+- Properly updates when version changes
+
+3) Add beforeinstallprompt listener to show install button in UI when supported.
+
+4) Ensure:
+- App opens in standalone mode (no browser bar)
+- Works offline for static assets
+- Supports Android Chrome install
+- Supports iOS Safari “Add to Home Screen”
+
+5) Keep PWA settings manageable from existing admin panel.
+
+Return:
+- Files modified
+- Confirmation that standalone mode works
+- Confirmation install prompt works
+- Confirmation branding now controlled from one file
+
+Do not explain. Apply changes now.

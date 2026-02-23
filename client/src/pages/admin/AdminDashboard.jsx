@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { brand } from '../../config/brand';
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -41,7 +42,7 @@ export default function AdminDashboard() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h2 className="cinzel font-bold text-xl gold-text mb-1">Yönetim Paneli</h2>
-        <p className="text-gray-400 text-sm">YOKO AJANS platform yönetimi</p>
+        <p className="text-gray-400 text-sm">{brand.name} platform yönetimi</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

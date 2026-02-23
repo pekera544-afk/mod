@@ -5,6 +5,7 @@ import { useSettings } from '../context/SettingsContext';
 import UserAvatar from './UserAvatar';
 import XpBar from './XpBar';
 import BadgeList, { getRoleLabel } from './RoleBadge';
+import { brand } from '../config/brand';
 
 export default function Sidebar({ open, onClose }) {
   const { t } = useTranslation();
@@ -12,7 +13,7 @@ export default function Sidebar({ open, onClose }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { settings } = useSettings();
-  const siteTitle = settings?.siteTitle || 'YOKO AJANS';
+  const siteTitle = settings?.siteTitle || brand.name;
 
   if (!user) {
     return (
@@ -122,7 +123,7 @@ export default function Sidebar({ open, onClose }) {
           </svg>
           Çıkış Yap
         </button>
-        <div className="text-center text-xs text-gray-700 mt-3">YOKO AJANS © 2025</div>
+        <div className="text-center text-xs text-gray-700 mt-3">{brand.footerText}</div>
       </div>
     </aside>
   );

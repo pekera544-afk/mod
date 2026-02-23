@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { brand } from '../config/brand';
 
 function BackButton() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function VipPage() {
             boxShadow: '0 0 40px rgba(192,132,252,0.1)'
           }}>
           <div className="text-5xl mb-3">💎</div>
-          <h2 className="cinzel font-bold text-xl text-white mb-2">YOKO VIP</h2>
+          <h2 className="cinzel font-bold text-xl text-white mb-2">{brand.shortName} VIP</h2>
           <p className="text-gray-400 text-sm mb-4">Sinema topluluğunun ayrıcalıklı üyesi ol</p>
           <a href="https://t.me/yokoajans" target="_blank" rel="noopener noreferrer"
             className="inline-block px-8 py-3 rounded-2xl font-bold text-sm transition-all hover:scale-105"

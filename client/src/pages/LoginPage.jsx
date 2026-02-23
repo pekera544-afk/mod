@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { brand } from '../config/brand';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -11,6 +12,8 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => { document.title = `${t('auth.login')} — ${brand.appTitle}`; }, [t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,7 +36,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🎬</div>
-          <h1 className="cinzel font-bold text-3xl gold-text mb-1">YOKO AJANS</h1>
+          <h1 className="cinzel font-bold text-3xl gold-text mb-1">{brand.appTitle}</h1>
           <p className="text-gray-400 text-sm">{t('auth.loginTitle')}</p>
         </div>
 

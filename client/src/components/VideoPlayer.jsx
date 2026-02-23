@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { brand } from '../config/brand';
 
 /* ─── URL helpers ─────────────────────────────────────────────────────────── */
 function getYTVideoId(url) {
@@ -70,7 +71,7 @@ function loadHls() {
 function setupMediaSession(title) {
   if (!('mediaSession' in navigator)) return;
   try {
-    navigator.mediaSession.metadata = new MediaMetadata({ title: title || 'Sinema Odası', artist: 'MOD CLUB' });
+    navigator.mediaSession.metadata = new MediaMetadata({ title: title || 'Sinema Odası', artist: brand.name });
   } catch {}
 }
 

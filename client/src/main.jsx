@@ -6,6 +6,9 @@ import './i18n';
 import './index.css';
 import { AuthProvider } from './context/AuthContext';
 import { SettingsProvider } from './context/SettingsContext';
+import { brand } from './config/brand';
+
+document.title = brand.appTitle;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

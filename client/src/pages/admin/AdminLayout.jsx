@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
+import { brand } from '../../config/brand';
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard', icon: '📊', exact: true },
@@ -26,7 +27,7 @@ export default function AdminLayout() {
   const { settings } = useSettings();
   const isRoot = location.pathname === '/admin';
   const currentLabel = getCurrentPageLabel(location.pathname);
-  const siteTitle = settings?.siteTitle || 'YOKO AJANS';
+  const siteTitle = settings?.siteTitle || brand.name;
 
   return (
     <div className="flex min-h-screen" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>

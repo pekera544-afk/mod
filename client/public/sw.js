@@ -1,5 +1,9 @@
-const CACHE_NAME = 'yoko-ajans-v4';
-const STATIC_ASSETS = ['/'];
+const CACHE_NAME = 'mod-club-v5';
+const STATIC_ASSETS = [
+  '/',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -12,10 +16,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
-        names.filter((name) => name !== CACHE_NAME).map((name) => {
-          console.log('[SW] Eski önbellek siliniyor:', name);
-          return caches.delete(name);
-        })
+        names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
       )
     )
   );
@@ -38,22 +39,37 @@ self.addEventListener('fetch', (event) => {
 
   if (url.pathname === '/' || url.pathname.endsWith('.html')) {
     event.respondWith(
-      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request))
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.woff')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
     );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
 

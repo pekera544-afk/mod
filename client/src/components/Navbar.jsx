@@ -2,11 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import i18n from '../i18n';
 import CreateRoomModal from './CreateRoomModal';
 import UserAvatar from './UserAvatar';
 import NotificationsPanel from './NotificationsPanel';
+import { brand } from '../config/brand';
 
 export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCounts, xpInfo }) {
   const { t } = useTranslation();
@@ -17,7 +18,21 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
   const [showNotif, setShowNotif] = useState(false);
 
   const lang = i18n.language;
-  const siteTitle = settings ? settings.siteTitle : 'YOKO AJANS';
+  const siteTitle = settings?.siteTitle || brand.name;
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(() => { setInstallPrompt(null); setShowInstall(false); });
+  };
   const totalNotifs = (notifCounts?.friendRequests || 0) + (notifCounts?.unreadDMs || 0);
 
   const toggleLang = () => {
@@ -49,6 +64,16 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
           </Link>
 
           <div className="flex items-center gap-2">
+            {showInstall && (
+              <button
+                onClick={handleInstall}
+                title="Uygulamayı Kur"
+                className="text-xs font-bold px-2 py-1 rounded border transition-colors flex items-center gap-1"
+                style={{ borderColor: 'rgba(212,175,55,0.4)', color: '#d4af37', background: 'rgba(212,175,55,0.1)' }}
+              >
+                📲 <span className="hidden sm:inline">Yükle</span>
+              </button>
+            )}
             <button
               onClick={toggleLang}
               className="text-xs font-bold px-2 py-1 rounded border border-gold-DEFAULT/30 text-gold-DEFAULT hover:bg-gold-DEFAULT/10 transition-colors"
