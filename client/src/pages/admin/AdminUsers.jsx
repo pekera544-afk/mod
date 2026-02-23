@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { FRAME_LIST } from '../../components/UserAvatar';
 
 const AVAILABLE_BADGES = ['⭐', '🏆', '🎬', '🔥', '💎', '🛡️', '🎭', '🌟', '👑', '🦊'];
-const AVAILABLE_FRAMES = [
-  { value: '', label: 'Yok' },
-  { value: 'gold', label: '✨ Altın' },
-  { value: 'fire', label: '🔥 Ateş' },
-  { value: 'rainbow', label: '🌈 Gökkuşağı' },
-  { value: 'galaxy', label: '🌌 Galaksi' },
-  { value: 'ice', label: '❄️ Buz' },
-];
+const AVAILABLE_FRAMES = FRAME_LIST;
 
 function EditUserModal({ user, onClose, onSaved }) {
   const [tab, setTab] = useState('basic');
@@ -284,16 +278,47 @@ function EditUserModal({ user, onClose, onSaved }) {
 
           {tab === 'frame' && (
             <div className="space-y-4">
-              <p className="text-xs text-gray-400">Profil çerçevesi seçin:</p>
-              <div className="space-y-2">
-                {AVAILABLE_FRAMES.map(f => (
-                  <button key={f.value} onClick={() => setFrame(f.value)}
-                    className="w-full px-4 py-3 rounded-xl text-left text-sm font-semibold transition-all"
-                    style={{ background: frame === f.value ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)', color: frame === f.value ? '#d4af37' : '#9ca3af', border: frame === f.value ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.06)' }}>
-                    {f.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.15)' }}>
+                <span className="text-2xl">🖼️</span>
+                <div>
+                  <div className="text-sm font-bold" style={{ color: '#d4af37' }}>Profil Çerçevesi</div>
+                  <div className="text-xs text-gray-400">Sohbette ve profil kartlarında görünür</div>
+                </div>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                {AVAILABLE_FRAMES.map(f => {
+                  const isSelected = frame === f.value;
+                  return (
+                    <button key={f.value} onClick={() => setFrame(f.value)}
+                      className="flex items-center gap-2.5 px-3 py-3 rounded-xl text-left text-sm font-semibold transition-all"
+                      style={{
+                        background: isSelected ? `${f.color}18` : 'rgba(255,255,255,0.04)',
+                        border: isSelected ? `1.5px solid ${f.color}` : '1px solid rgba(255,255,255,0.06)',
+                        boxShadow: isSelected ? `0 0 12px ${f.color}40` : 'none',
+                      }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: '50%',
+                        border: `2px solid ${f.color}`,
+                        boxShadow: f.value ? `0 0 6px ${f.color}80` : 'none',
+                        flexShrink: 0,
+                        background: `${f.color}20`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10
+                      }}>
+                        {f.value ? '' : ''}
+                      </div>
+                      <span style={{ color: isSelected ? f.color : '#9ca3af', fontSize: 12 }}>{f.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {frame && (
+                <div className="p-3 rounded-xl text-center text-xs" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  Seçili: <span className="font-bold" style={{ color: AVAILABLE_FRAMES.find(f => f.value === frame)?.color }}>
+                    {AVAILABLE_FRAMES.find(f => f.value === frame)?.label}
+                  </span>
+                </div>
+              )}
               <button onClick={saveFrame} className="w-full btn-gold py-2.5 text-sm">🎨 Çerçeveyi Kaydet</button>
             </div>
           )}

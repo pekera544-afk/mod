@@ -29,7 +29,7 @@ export default function AdminLayout() {
   const siteTitle = settings?.siteTitle || 'YOKO AJANS';
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
       <aside className="w-56 flex-shrink-0 hidden md:flex flex-col"
         style={{ background: 'rgba(10,10,16,0.98)', borderRight: '1px solid rgba(212,175,55,0.15)' }}>
         <div className="p-4 border-b border-gold-DEFAULT/10">
@@ -68,7 +68,7 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
         <header className="px-4 py-3 border-b border-gold-DEFAULT/10 flex items-center gap-3"
           style={{ background: 'rgba(15,15,20,0.95)' }}>
           {!isRoot ? (

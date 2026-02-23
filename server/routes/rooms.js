@@ -12,7 +12,7 @@ const roomSelect = {
   maxUsers: true, isActive: true, isLocked: true, chatEnabled: true,
   spamProtectionEnabled: true, spamCooldownSeconds: true, ownerId: true,
   createdAt: true, updatedAt: true, deletedAt: true,
-  owner: { select: { id: true, username: true, role: true } },
+  owner: { select: { id: true, username: true, role: true, vip: true } },
   state: true
 };
 

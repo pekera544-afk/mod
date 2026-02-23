@@ -18,11 +18,12 @@ function BackButton() {
   );
 }
 
-function RoomCard({ room, onJoinLocked, highlight }) {
+function RoomCard({ room, onJoinLocked }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isOwned = user && room.ownerId === user.id;
   const liveCount = room.liveCount || 0;
+  const isVipRoom = room.owner?.vip || room.owner?.role === 'admin';
 
   const handleClick = () => {
     if (room.isLocked && !isOwned) { onJoinLocked(room); return; }
@@ -31,32 +32,45 @@ function RoomCard({ room, onJoinLocked, highlight }) {
 
   return (
     <div onClick={handleClick}
-      className="p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
-      style={{
-        background: highlight ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.04)',
-        border: `1px solid ${highlight ? 'rgba(212,175,55,0.35)' : 'rgba(212,175,55,0.12)'}`,
-        boxShadow: highlight ? '0 0 20px rgba(212,175,55,0.06)' : 'none',
-      }}>
+      className={`p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01] ${isVipRoom ? 'vip-room-card' : ''}`}
+      style={!isVipRoom ? {
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(212,175,55,0.12)',
+      } : {}}>
+      {isVipRoom && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full animate-pulse"
+            style={{ background: 'rgba(168,85,247,0.2)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.4)' }}>
+            💎 VIP Oda
+          </span>
+          {room.isTrending && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(255,100,0,0.2)', color: '#fb923c', border: '1px solid rgba(255,100,0,0.4)' }}>
+              🔥 Trend
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex gap-3">
         {room.posterUrl ? (
           <img src={room.posterUrl} alt={room.title} className="w-16 h-20 object-cover rounded-xl flex-shrink-0" />
         ) : (
           <div className="w-16 h-20 rounded-xl flex items-center justify-center flex-shrink-0 text-3xl"
-            style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.15)' }}>
+            style={{ background: isVipRoom ? 'rgba(168,85,247,0.12)' : 'rgba(212,175,55,0.08)', border: `1px solid ${isVipRoom ? 'rgba(168,85,247,0.25)' : 'rgba(212,175,55,0.15)'}` }}>
             {room.providerType === 'youtube' ? '▶️' : '🔗'}
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-white font-bold text-sm leading-tight">{room.title}</h3>
+            <h3 className="font-bold text-sm leading-tight" style={{ color: isVipRoom ? '#e9d5ff' : '#fff' }}>{room.title}</h3>
             <div className="flex items-center gap-1 flex-shrink-0">
               {room.isLocked && !isOwned && <span className="text-xs text-gray-400">🔒</span>}
               {room.isLocked && isOwned && <span className="text-xs text-gray-400">🔑</span>}
-              {room.isTrending && <span className="text-xs" style={{ color: '#ff6400' }}>🔥</span>}
+              {!isVipRoom && room.isTrending && <span className="text-xs" style={{ color: '#ff6400' }}>🔥</span>}
             </div>
           </div>
           {room.movieTitle && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: '#d4af37' }}>{room.movieTitle}</p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: isVipRoom ? '#c084fc' : '#d4af37' }}>{room.movieTitle}</p>
           )}
           {room.description && (
             <p className="text-xs text-gray-500 mt-1 line-clamp-2">{room.description}</p>
@@ -83,7 +97,9 @@ function RoomCard({ room, onJoinLocked, highlight }) {
                 </span>
               )}
               {room.owner && !isOwned && (
-                <span className="text-xs text-gray-500">@{room.owner.username}</span>
+                <span className="text-xs" style={{ color: isVipRoom ? '#c084fc' : '#6b7280' }}>
+                  {isVipRoom ? '💎' : '@'}{room.owner.username}
+                </span>
               )}
               <span className="text-xs text-gray-600 capitalize">{room.providerType}</span>
             </div>
@@ -201,11 +217,19 @@ export default function RoomsPage() {
   }, [user]);
 
   const otherRooms = rooms.filter(r => !user || r.ownerId !== user.id);
-  const filtered = otherRooms.filter(r => {
-    const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase()) || r.movieTitle?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || (filter === 'youtube' && r.providerType === 'youtube') || (filter === 'external' && r.providerType === 'external') || (filter === 'open' && !r.isLocked) || (filter === 'live' && (r.liveCount || 0) > 0);
-    return matchSearch && matchFilter;
-  });
+  const filtered = otherRooms
+    .filter(r => {
+      const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase()) || r.movieTitle?.toLowerCase().includes(search.toLowerCase());
+      const matchFilter = filter === 'all' || (filter === 'youtube' && r.providerType === 'youtube') || (filter === 'external' && r.providerType === 'external') || (filter === 'open' && !r.isLocked) || (filter === 'live' && (r.liveCount || 0) > 0);
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => {
+      const aVip = a.owner?.vip || a.owner?.role === 'admin' ? 1 : 0;
+      const bVip = b.owner?.vip || b.owner?.role === 'admin' ? 1 : 0;
+      if (bVip !== aVip) return bVip - aVip;
+      if (b.isTrending !== a.isTrending) return (b.isTrending ? 1 : 0) - (a.isTrending ? 1 : 0);
+      return (b.liveCount || 0) - (a.liveCount || 0);
+    });
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
