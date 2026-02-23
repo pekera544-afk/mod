@@ -323,9 +323,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
-      <div className="max-w-7xl mx-auto px-4 xl:px-8 pt-4">
+      <div className="w-[96%] max-w-[1600px] mx-auto px-4 xl:px-6 pt-4">
 
-        <div className="lg:grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] lg:gap-6 xl:gap-8 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_460px] 2xl:grid-cols-[1fr_520px] lg:gap-6 xl:gap-10 2xl:gap-12 lg:items-start">
 
           {/* ── MAIN COLUMN ── */}
           <div className="space-y-4">

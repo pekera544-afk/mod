@@ -69,6 +69,68 @@ router.get('/friends/sent', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/dms/conversations', requireAuth, async (req, res) => {
+  try {
+    const myId = req.user.id;
+    const allDMs = await prisma.directMessage.findMany({
+      where: {
+        deletedAt: null,
+        OR: [{ fromId: myId }, { toId: myId }]
+      },
+      include: {
+        from: { select: { id: true, username: true, avatarUrl: true, role: true, vip: true, level: true } },
+        to: { select: { id: true, username: true, avatarUrl: true, role: true, vip: true, level: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500
+    });
+
+    const convMap = new Map();
+    for (const dm of allDMs) {
+      const otherId = dm.fromId === myId ? dm.toId : dm.fromId;
+      const other = dm.fromId === myId ? dm.to : dm.from;
+      if (!convMap.has(otherId)) {
+        convMap.set(otherId, { other, lastMessage: dm, unread: 0 });
+      }
+      if (!dm.read && dm.toId === myId) {
+        convMap.get(otherId).unread++;
+      }
+    }
+
+    const conversations = Array.from(convMap.values())
+      .sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
+
+    res.json(conversations);
+  } catch (err) {
+    console.error('DM conversations error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/dms/all', requireAuth, async (req, res) => {
+  try {
+    await prisma.directMessage.updateMany({
+      where: { OR: [{ fromId: req.user.id }, { toId: req.user.id }], deletedAt: null },
+      data: { deletedAt: new Date() }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/dms/mark-all-read', requireAuth, async (req, res) => {
+  try {
+    await prisma.directMessage.updateMany({
+      where: { toId: req.user.id, read: false },
+      data: { read: true }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/dm/:userId', requireAuth, async (req, res) => {
   try {
     const otherId = Number(req.params.userId);

@@ -240,6 +240,18 @@ function setupSocket(io) {
       } catch {}
     });
 
+    socket.on('mark_all_dms_read', async () => {
+      if (!socket.user.id) return;
+      try {
+        await prisma.directMessage.updateMany({
+          where: { toId: socket.user.id, read: false },
+          data: { read: true }
+        });
+        const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
+        socket.emit('notification_counts', { friendRequests: pending, unreadDMs: 0 });
+      } catch {}
+    });
+
     socket.on('friend_request', async ({ toId }) => {
       if (!socket.user.id || !toId) return;
       try {
