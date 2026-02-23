@@ -1,6 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
+import UserAvatar from '../../components/UserAvatar';
+
+function HeroCardUserSelector({ currentUser, onSelect, onClear }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (query.length < 2) { setResults([]); return; }
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setSearching(true);
+      axios.get(`/api/admin/users/search?q=${encodeURIComponent(query)}`)
+        .then(r => setResults(r.data))
+        .catch(() => {})
+        .finally(() => setSearching(false));
+    }, 300);
+  }, [query]);
+
+  return (
+    <div className="space-y-3">
+      {currentUser ? (
+        <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.25)' }}>
+          <UserAvatar user={currentUser} size={52} />
+          <div className="flex-1">
+            <div className="text-sm font-bold text-white">{currentUser.username}</div>
+            <div className="text-xs text-gray-400">{currentUser.frameType ? `Çerçeve: ${currentUser.frameType}` : 'Çerçevesiz'} • Lv.{currentUser.level}</div>
+            {currentUser.bio && <div className="text-xs text-gray-500 mt-0.5 truncate">{currentUser.bio}</div>}
+          </div>
+          <button onClick={onClear}
+            className="text-xs px-3 py-1.5 rounded-lg"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+            Kaldır
+          </button>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500 p-2">Kart üzerinde görünecek kullanıcı seçilmedi</div>
+      )}
+
+      <div className="relative">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Kullanıcı ara (min. 2 karakter)..."
+          className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+        />
+        {searching && <div className="absolute right-3 top-2.5 text-xs text-gray-400 animate-pulse">Arıyor...</div>}
+      </div>
+
+      {results.length > 0 && (
+        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)' }}>
+          {results.map(u => (
+            <button key={u.id} onClick={() => { onSelect(u); setQuery(''); setResults([]); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all hover:bg-white/5"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <UserAvatar user={u} size={32} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-white truncate">{u.username}</div>
+                <div className="text-xs text-gray-500">{u.role} • Lv.{u.level} {u.frameType && `• ${u.frameType} çerçeve`}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminSettings() {
   const { refresh } = useSettings();
@@ -17,7 +86,7 @@ export default function AdminSettings() {
     setSaving(true);
     setMsg('');
     try {
-      const { id, updatedAt, ...data } = form;
+      const { id, updatedAt, heroCardUser, ...data } = form;
       await axios.put('/api/admin/settings', data);
       refresh();
       setMsg('✅ Ayarlar kaydedildi!');
@@ -37,7 +106,7 @@ export default function AdminSettings() {
     { key: 'heroTitleTR', label: 'Hero Başlık (TR)', type: 'text' },
     { key: 'heroTitleEN', label: 'Hero Başlık (EN)', type: 'text' },
     { key: 'logoUrl', label: 'Logo URL', type: 'url' },
-    { key: 'wolfImageUrl', label: 'Wolf/Amblem Görseli URL', type: 'url' },
+    { key: 'wolfImageUrl', label: 'Wolf/Amblem Görseli URL (Kullanıcı seçilmezse gösterilir)', type: 'url' },
     { key: 'primaryColor', label: 'Ana Renk', type: 'color' },
     { key: 'bgImageUrl', label: 'Arka Plan Görsel URL', type: 'url' }
   ];
@@ -73,6 +142,21 @@ export default function AdminSettings() {
       {msg && <div className="p-3 rounded-lg text-sm glass-card">{msg}</div>}
 
       <form onSubmit={handleSave} className="space-y-6">
+
+        <div className="glass-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">
+            🎴 Hero Kart — Öne Çıkan Kullanıcı
+          </h3>
+          <p className="text-xs text-gray-500">
+            Ana sayfadaki MOD CLUB kartında kurt resmi yerine seçilen kullanıcının profili (çerçevesiyle birlikte) gösterilir.
+          </p>
+          <HeroCardUserSelector
+            currentUser={form.heroCardUser || null}
+            onSelect={(u) => setForm(p => ({ ...p, heroCardUserId: u.id, heroCardUser: u }))}
+            onClear={() => setForm(p => ({ ...p, heroCardUserId: null, heroCardUser: null }))}
+          />
+        </div>
+
         <div className="glass-card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">Marka Ayarları</h3>
           {brandFields.map(f => (

@@ -2,12 +2,14 @@ import { Outlet } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import FloatingChat from './FloatingChat';
 import LevelUpToast from './LevelUpToast';
 import { useAuth } from '../context/AuthContext';
 import { getLevelInfo } from './XpBar';
+import { playNotifSound } from '../utils/notifSound';
 
 const TOAST_STYLES = {
   room:         { bg: 'rgba(212,175,55,0.12)',  border: 'rgba(212,175,55,0.3)',  icon: '🎬' },
@@ -76,6 +78,7 @@ export default function Layout() {
   const [xpInfo, setXpInfo] = useState(null);
   const [levelUpVal, setLevelUpVal] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [myRoom, setMyRoom] = useState(null);
   const { user, updateUser } = useAuth();
   const socketRef = useRef(null);
   const prevUserIdRef = useRef(undefined);
@@ -87,6 +90,11 @@ export default function Layout() {
   };
 
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+  useEffect(() => {
+    if (!user?.id) { setMyRoom(null); return; }
+    axios.get('/api/rooms/my').then(r => setMyRoom(r.data)).catch(() => setMyRoom(null));
+  }, [user?.id]);
 
   useEffect(() => {
     const currentUserId = user?.id ?? null;
@@ -119,6 +127,12 @@ export default function Layout() {
 
     sock.on('friend_request_received', () => {
       setNotifCounts(prev => ({ ...prev, friendRequests: (prev.friendRequests || 0) + 1 }));
+      playNotifSound('friend');
+    });
+
+    sock.on('new_dm', () => {
+      setNotifCounts(prev => ({ ...prev, unreadDMs: (prev.unreadDMs || 0) + 1 }));
+      playNotifSound('dm');
     });
 
     sock.on('new_room_opened', (data) => {
@@ -128,6 +142,7 @@ export default function Layout() {
         title: `Yeni Oda: ${data.title}`,
         subtitle: `${data.ownerUsername} tarafından açıldı • ${data.movieTitle || ''}`,
       });
+      playNotifSound('room');
     });
 
     sock.on('new_announcement', (data) => {
@@ -136,6 +151,7 @@ export default function Layout() {
         title: `Duyuru: ${data.titleTR}`,
         subtitle: 'Yeni duyuru yayınlandı',
       });
+      playNotifSound('announcement');
     });
 
     sock.on('new_event', (data) => {
@@ -144,6 +160,7 @@ export default function Layout() {
         title: `Etkinlik: ${data.titleTR}`,
         subtitle: `Başlangıç: ${new Date(data.startTime).toLocaleDateString('tr-TR')}`,
       });
+      playNotifSound('event');
     });
 
     sock.on('new_news_published', (data) => {
@@ -153,6 +170,7 @@ export default function Layout() {
         title: `Yeni Haber: ${data.title}`,
         subtitle: 'Yeni haber yayınlandı',
       });
+      playNotifSound('news');
     });
 
     sock.on('you_were_mentioned', (data) => {
@@ -162,6 +180,7 @@ export default function Layout() {
         title: `@${data.from} sizi etiketledi`,
         subtitle: data.content,
       });
+      playNotifSound('mention');
     });
 
     return () => {
@@ -184,6 +203,8 @@ export default function Layout() {
         notifCounts={notifCounts}
         setNotifCounts={setNotifCounts}
         xpInfo={xpInfo}
+        myRoom={myRoom}
+        setMyRoom={setMyRoom}
       />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (

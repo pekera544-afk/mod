@@ -13,25 +13,50 @@ async function logAction(adminId, action, target, detail = '') {
 
 router.use(requireAdmin);
 
+const HERO_USER_SELECT = {
+  id: true, username: true, avatarUrl: true, avatarType: true, frameType: true,
+  role: true, vip: true, badges: true, level: true, bio: true
+};
+
 router.get('/settings', async (req, res) => {
   try {
-    let s = await prisma.settings.findFirst();
-    if (!s) s = await prisma.settings.create({ data: {} });
+    let s = await prisma.settings.findFirst({
+      include: { heroCardUser: { select: HERO_USER_SELECT } }
+    });
+    if (!s) s = await prisma.settings.create({ data: {}, include: { heroCardUser: { select: HERO_USER_SELECT } } });
     res.json(s);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 router.put('/settings', async (req, res) => {
   try {
+    const { heroCardUser, ...rawData } = req.body;
+    const data = { ...rawData };
+    if ('heroCardUserId' in data) {
+      data.heroCardUserId = data.heroCardUserId ? Number(data.heroCardUserId) : null;
+    }
     let s = await prisma.settings.findFirst();
     if (!s) {
-      s = await prisma.settings.create({ data: req.body });
+      s = await prisma.settings.create({ data, include: { heroCardUser: { select: HERO_USER_SELECT } } });
     } else {
-      s = await prisma.settings.update({ where: { id: s.id }, data: req.body });
+      s = await prisma.settings.update({ where: { id: s.id }, data, include: { heroCardUser: { select: HERO_USER_SELECT } } });
     }
-    await logAction(req.user.id, 'UPDATE', 'Settings', JSON.stringify(req.body).slice(0, 200));
+    await logAction(req.user.id, 'UPDATE', 'Settings', JSON.stringify(rawData).slice(0, 200));
     res.json(s);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.get('/users/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
+    const users = await prisma.user.findMany({
+      where: { username: { contains: q, mode: 'insensitive' } },
+      select: HERO_USER_SELECT,
+      take: 10
+    });
+    res.json(users);
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 router.get('/pwa', async (req, res) => {

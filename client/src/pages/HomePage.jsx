@@ -6,6 +6,7 @@ import { useSettings } from '../context/SettingsContext';
 import CreateRoomModal from '../components/CreateRoomModal';
 import PasswordPrompt from '../components/PasswordPrompt';
 import UserProfileCard from '../components/UserProfileCard';
+import UserAvatar from '../components/UserAvatar';
 import LandingPage from './LandingPage';
 import { brand } from '../config/brand';
 
@@ -377,7 +378,15 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex-shrink-0 relative">
-                  {settings?.wolfImageUrl ? (
+                  {settings?.heroCardUser ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <UserAvatar user={settings.heroCardUser} size={80} />
+                      <span className="text-xs font-bold truncate max-w-[90px] text-center"
+                        style={{ color: '#d4af37' }}>
+                        {settings.heroCardUser.username}
+                      </span>
+                    </div>
+                  ) : settings?.wolfImageUrl ? (
                     <img src={settings.wolfImageUrl} alt="emblem"
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
                       style={{ boxShadow: '0 0 30px rgba(155,89,182,0.6), 0 0 60px rgba(212,175,55,0.3)' }} />
@@ -389,10 +398,12 @@ export default function HomePage() {
                       <span className="text-4xl sm:text-5xl">🐺</span>
                     </div>
                   )}
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                    style={{ background: 'linear-gradient(135deg, #d4af37, #b8962a)', color: '#0f0f14', fontWeight: 900 }}>
-                    👑
-                  </div>
+                  {!settings?.heroCardUser && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                      style={{ background: 'linear-gradient(135deg, #d4af37, #b8962a)', color: '#0f0f14', fontWeight: 900 }}>
+                      👑
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -9,7 +9,7 @@ import UserAvatar from './UserAvatar';
 import NotificationsPanel from './NotificationsPanel';
 import { brand } from '../config/brand';
 
-export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCounts, xpInfo }) {
+export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCounts, xpInfo, myRoom, setMyRoom }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { settings } = useSettings();
@@ -33,12 +33,21 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
     installPrompt.prompt();
     installPrompt.userChoice.then(() => { setInstallPrompt(null); setShowInstall(false); });
   };
+
   const totalNotifs = (notifCounts?.friendRequests || 0) + (notifCounts?.unreadDMs || 0);
 
   const toggleLang = () => {
     const newLang = lang === 'tr' ? 'en' : 'tr';
     i18n.changeLanguage(newLang);
     localStorage.setItem('yoko_lang', newLang);
+  };
+
+  const handleRoomButton = () => {
+    if (myRoom) {
+      navigate(`/rooms/${myRoom.id}`);
+    } else {
+      setShowCreate(true);
+    }
   };
 
   return (
@@ -93,17 +102,29 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
                 )}
 
                 <button
-                  onClick={() => setShowCreate(true)}
+                  onClick={handleRoomButton}
                   className="btn-gold text-xs px-3 py-1.5 flex items-center gap-1 font-bold"
-                  title="Oda Oluştur"
+                  title={myRoom ? 'Odana Gir' : 'Oda Oluştur'}
                 >
-                  🎬 <span className="hidden sm:inline">Oda Oluştur</span>
+                  {myRoom ? (
+                    <>
+                      🚪
+                      <span className="hidden sm:inline">Odana Gir</span>
+                      <span className="sm:hidden">Gir</span>
+                    </>
+                  ) : (
+                    <>
+                      🎬
+                      <span className="hidden sm:inline">Oda Oluştur</span>
+                      <span className="sm:hidden">Oda Kur</span>
+                    </>
+                  )}
                 </button>
 
                 <div className="relative">
                   <button
                     onClick={() => setShowNotif(s => !s)}
-                    className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+                    className="relative flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
                     aria-label="Bildirimler"
                   >
                     <svg width="20" height="20" fill="none" stroke="#9ca3af" strokeWidth="2" viewBox="0 0 24 24">
@@ -111,9 +132,17 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
                       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
                     {totalNotifs > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white flex items-center justify-center font-bold" style={{ background: '#ef4444', fontSize: 9 }}>
-                        {totalNotifs > 9 ? '9+' : totalNotifs}
-                      </span>
+                      <>
+                        <span className="hidden sm:inline text-xs font-bold tabular-nums"
+                          style={{ color: '#ef4444' }}>
+                          {totalNotifs > 99 ? '99+' : totalNotifs}
+                        </span>
+                        <span
+                          className="sm:hidden absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white flex items-center justify-center font-bold"
+                          style={{ background: '#ef4444', fontSize: 9 }}>
+                          {totalNotifs > 9 ? '9+' : totalNotifs}
+                        </span>
+                      </>
                     )}
                   </button>
                   {showNotif && (
@@ -149,9 +178,10 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
       {showCreate && (
         <CreateRoomModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
+          onCreated={(room) => {
             setShowCreate(false);
-            window.location.reload();
+            if (setMyRoom) setMyRoom(room);
+            navigate(`/rooms/${room.id}`);
           }}
         />
       )}

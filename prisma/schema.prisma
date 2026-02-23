@@ -9,6 +9,8 @@ datasource db {
 model Settings {
   id             Int      @id @default(autoincrement())
   siteTitle      String   @default("YOKO AJANS")
+  heroCardUserId Int?
+  heroCardUser   User?    @relation("HeroCardUser", fields: [heroCardUserId], references: [id])
   taglineTR      String   @default("Birlikte İzle, Birlikte Hisset.")
   taglineEN      String   @default("Watch Together, Feel Together.")
   logoUrl        String   @default("")
@@ -88,6 +90,7 @@ model User {
   friendshipsB    Friendship[]     @relation("FriendshipUserB")
   auditLogs       AuditLog[]
   ownedRooms      Room[]           @relation("RoomOwner")
+  heroCardRef     Settings[]       @relation("HeroCardUser")
   roomModsGiven   RoomModerator[]  @relation("ModeratorAssigner")
   roomModsHeld    RoomModerator[]  @relation("ModeratorUser")
   roomBansGiven   RoomBan[]        @relation("BanBanner")
