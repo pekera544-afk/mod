@@ -96,7 +96,12 @@ export default function Navbar({ onMenuClick, socket, notifCounts, xpInfo }) {
                   )}
                 </div>
 
-                <div onClick={() => navigate('/')} className="cursor-pointer">
+                <div
+                  onClick={() => navigate('/profile')}
+                  className="cursor-pointer rounded-full transition-all hover:ring-2"
+                  style={{ '--tw-ring-color': 'rgba(212,175,55,0.5)' }}
+                  title="Profil Ayarları"
+                >
                   <UserAvatar user={user} size={34} />
                 </div>
 
