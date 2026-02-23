@@ -1,0 +1,115 @@
+Create a production-ready, Replit-independent, Node.js-based web application for an 18+ cinema community platform (watch parties + live text chat) called “YOKO AJANS”.
+
+GOALS
+- Must run on any Node.js hosting (VPS, Railway, Render, Docker, cPanel Node, etc.). No Replit-specific features.
+- Mobile-first UI, fully responsive for mobile / tablet / desktop.
+- PWA support (installable), with offline-friendly shell, service worker, and manifest.
+- Multilingual: Turkish + English with i18n. Default language on first visit MUST be Turkish. Provide a language switcher and persist preference.
+- Admin Panel must allow changing site branding and PWA settings without redeploying.
+
+TECH STACK (Required)
+- Backend: Node.js + Express
+- Database: PostgreSQL preferred (SQLite allowed for local dev), using an ORM (Prisma recommended).
+- Auth: JWT-based auth for admin panel; role-based access control (Admin / VIP / User).
+- Frontend: React (Vite) or Next.js (choose one and implement cleanly), Tailwind CSS for styling.
+- PWA: Workbox or equivalent, proper service worker registration, cache strategy, update flow.
+
+CORE FEATURES
+1) PUBLIC / USER APP
+- Homepage dashboard with premium dark theme (black #0f0f14, matte gold #d4af37, subtle purple/red cinematic highlights).
+- Sections:
+  - “Live Cinema Rooms” list (room name, current movie, participant count, trending badge, “Join Room” button)
+  - “Tonight’s Featured Screening” card (scheduled watch party)
+  - Announcements / Agency updates
+  - “Top Members of the Month” leaderboard (top 3)
+- Cinema Room Page:
+  - Synchronized watch party player placeholder area (do NOT implement piracy; assume user provides legitimate stream URL or embedded provider).
+  - Live TEXT chat (no voice chat).
+  - Participant list and roles (Admin/VIP/User).
+  - Emoji reactions and message moderation (admin delete / timeout).
+- Notifications:
+  - In-app notifications for new announcements and event reminders.
+
+2) ADMIN PANEL (CRITICAL)
+Admin panel must be a separate protected area with a strong dashboard:
+- Manage site branding settings (editable from UI):
+  - Site title (default: “YOKO AJANS”)
+  - Tagline (TR default: “Birlikte İzle, Birlikte Hisset.” / EN default: “Watch Together, Feel Together.”)
+  - Logo URL
+  - Theme accents (primary accent color, optional background image URL)
+- Manage i18n text overrides:
+  - Allow admin to override certain UI strings for TR and EN (at least hero title/tagline + menu labels).
+- Manage PWA settings from the Admin panel (NO redeploy):
+  - App name (manifest.name) and short name
+  - Description
+  - Theme color and background color
+  - App icons (upload or URL for 192x192 and 512x512)
+  - Start URL and scope
+  - Display mode (standalone)
+  - Enable/disable PWA install prompt
+  - Force service worker update button (“Publish PWA Update”) that bumps a version field and triggers clients to refresh caches gracefully.
+- Manage content:
+  - Announcements (CRUD)
+  - Events / watch party schedule (CRUD)
+  - Cinema Rooms (CRUD): room title, description, poster, allowed roles, max users
+  - Users (CRUD): assign role, VIP status, ban/timeout
+- Provide an audit log of admin actions.
+
+PWA REQUIREMENTS
+- Must generate and serve:
+  - /manifest.webmanifest built dynamically from DB-backed settings (admin-editable).
+- Service worker:
+  - Cache-first for static assets, network-first for API calls (with fallback).
+  - Offline “shell” page with last cached announcements list.
+  - Update strategy: when a new SW is available, show a toast “Update available” with a refresh button.
+- Must pass Lighthouse PWA checks (as much as possible).
+
+INTERNATIONALIZATION
+- Use a robust i18n framework (react-i18next or next-intl).
+- Turkish is default on first visit.
+- Detect language preference from localStorage; if absent, use Turkish.
+- Provide a language toggle in header: TR / EN.
+- All navigation labels, buttons, and key sections must be translated.
+- Allow server-side storage of preferred language per user (optional), but client persistence is required.
+
+DATA MODEL (Minimum)
+- Settings table: siteTitle, taglineTR, taglineEN, logoUrl, primaryColor, etc.
+- PwaSettings table: name, shortName, descriptionTR/EN, themeColor, backgroundColor, icon192Url, icon512Url, startUrl, scope, display, version, enabled
+- Users table: username, email, passwordHash, role, vip, createdAt
+- Rooms table: title, movieTitle, posterUrl, isTrending, allowedRoles, createdAt
+- Messages table: roomId, userId, content, createdAt, deletedAt
+- Announcements table: titleTR/EN, contentTR/EN, createdAt, pinned
+- Events table: titleTR/EN, startTime, posterUrl, descriptionTR/EN
+
+API ROUTES (Minimum)
+- GET /api/settings
+- GET /api/pwa/manifest  (returns manifest JSON based on DB)
+- Admin:
+  - PUT /api/admin/settings
+  - PUT /api/admin/pwa
+  - POST/PUT/DELETE announcements, rooms, events
+  - POST /api/admin/pwa/publish-update (increments version + returns new version)
+
+DEPLOYMENT
+- Provide Dockerfile + docker-compose.yml (Postgres + app).
+- Provide .env.example with required variables.
+- Provide scripts:
+  - npm run dev
+  - npm run build
+  - npm start
+  - prisma migrate deploy / seed
+- Must store persistent data in DB, not filesystem, so it works on ephemeral hosts too.
+
+UI/UX REQUIREMENTS
+- Premium “luxury cinema club” look:
+  - Dark glassmorphism cards, soft glow borders, rounded corners, subtle gradients.
+  - Clear spacing, readable typography.
+- Must include a hamburger menu (mobile) and sidebar (tablet/desktop).
+- Must include a floating quick-chat button.
+- Accessibility: basic contrast and keyboard nav.
+
+OUTPUT
+- Generate the full project structure (backend + frontend).
+- Provide all code files needed, not pseudo-code.
+- Include seed data that sets default Turkish content and default branding.
+- Ensure “YOKO AJANS” is editable from Admin panel and instantly reflects on the public UI without redeploying.
