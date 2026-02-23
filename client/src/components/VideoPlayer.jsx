@@ -41,7 +41,7 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
   const onStateChangeRef = useRef(onStateChange);
 
   const [playerReady, setPlayerReady] = useState(false);
-  const [muted, setMuted] = useState(!isHost);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [volume, setVolume] = useState(80);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [newUrl, setNewUrl] = useState('');
@@ -51,7 +51,7 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
   const syncIntervalRef = useRef(null);
   const sliderDraggingRef = useRef(false);
   const destroyedRef = useRef(false);
-  const lastAppliedRef = useRef({ isPlaying: null, time: -999 });
+  const lastIsPlayingRef = useRef(null);
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
@@ -63,9 +63,10 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     if (!videoId || providerType !== 'youtube') return;
     destroyedRef.current = false;
     setPlayerReady(false);
+    setSoundEnabled(false);
     setDuration(0);
     setSeekPos(0);
-    lastAppliedRef.current = { isPlaying: null, time: -999 };
+    lastIsPlayingRef.current = null;
 
     loadYTApi(() => {
       if (destroyedRef.current || !mountRef.current) return;
@@ -107,29 +108,27 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
             p.seekTo(syncTime, true);
             if (state?.isPlaying) p.playVideo();
             else p.pauseVideo();
-            p.unMute();
-            if (isHostRef.current) {
-              p.setVolume(80);
-            } else {
-              p.setVolume(0);
-            }
-            lastAppliedRef.current = { isPlaying: state?.isPlaying, time: syncTime };
+            lastIsPlayingRef.current = state?.isPlaying;
             setPlayerReady(true);
           },
           onStateChange(e) {
             if (destroyedRef.current) return;
-            if (!isHostRef.current) return;
             const S = window.YT.PlayerState;
             const p = playerRef.current;
             if (!p) return;
             const dur = p.getDuration?.() || 0;
-            if (dur > 0) setDuration(dur);
+            if (dur > 0 && dur !== duration) setDuration(dur);
+
+            if (!isHostRef.current) return;
             const t = p.getCurrentTime?.() || 0;
             if (e.data === S.PLAYING) {
+              lastIsPlayingRef.current = true;
               onStateChangeRef.current?.({ isPlaying: true, currentTimeSeconds: t });
             } else if (e.data === S.PAUSED) {
+              lastIsPlayingRef.current = false;
               onStateChangeRef.current?.({ isPlaying: false, currentTimeSeconds: t });
             } else if (e.data === S.ENDED) {
+              lastIsPlayingRef.current = false;
               onStateChangeRef.current?.({ isPlaying: false, currentTimeSeconds: t });
             }
           },
@@ -158,33 +157,20 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
 
       const t = p.getCurrentTime?.() || 0;
       const dur = p.getDuration?.() || 0;
-      if (dur > 0 && dur !== duration) setDuration(dur);
+      if (dur > 0) setDuration(dur);
       if (!sliderDraggingRef.current) setSeekPos(t);
 
       if (isHostRef.current) {
-        const S = window.YT?.PlayerState;
-        const pState = p.getPlayerState?.();
-        const isPlaying = pState === S?.PLAYING;
-        onStateChangeRef.current?.({ currentTimeSeconds: t, isPlaying });
+        onStateChangeRef.current?.({ currentTimeSeconds: t });
       } else {
         const state = roomStateRef.current;
         if (!state) return;
-        const drift = t - (state.currentTimeSeconds || 0);
-        const absDrift = Math.abs(drift);
-        const last = lastAppliedRef.current;
-        const playingChanged = state.isPlaying !== last.isPlaying;
-        const needsSeek = absDrift > 5;
-
-        if (needsSeek) {
+        const drift = Math.abs(t - (state.currentTimeSeconds || 0));
+        if (drift > 8) {
           p.seekTo(state.currentTimeSeconds, true);
         }
-        if (playingChanged || needsSeek) {
-          if (state.isPlaying) p.playVideo?.();
-          else p.pauseVideo?.();
-          lastAppliedRef.current = { isPlaying: state.isPlaying, time: state.currentTimeSeconds };
-        }
       }
-    }, 2000);
+    }, 3000);
 
     return () => clearInterval(syncIntervalRef.current);
   }, [playerReady]);
@@ -195,28 +181,55 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     if (!state) return;
 
     const p = playerRef.current;
+    const targetPlaying = state.isPlaying;
     const cur = p.getCurrentTime?.() || 0;
     const drift = Math.abs(cur - (state.currentTimeSeconds || 0));
-    const last = lastAppliedRef.current;
-    const playingChanged = state.isPlaying !== last.isPlaying;
-    const needsSeek = drift > 5;
 
-    if (needsSeek) {
+    if (drift > 8) {
       p.seekTo(state.currentTimeSeconds, true);
-      setSeekPos(state.currentTimeSeconds);
     }
-    if (playingChanged || needsSeek) {
-      if (state.isPlaying) p.playVideo?.();
+
+    if (targetPlaying !== lastIsPlayingRef.current) {
+      if (targetPlaying) p.playVideo?.();
       else p.pauseVideo?.();
-      lastAppliedRef.current = { isPlaying: state.isPlaying, time: state.currentTimeSeconds };
+      lastIsPlayingRef.current = targetPlaying;
     }
   }, [roomState?.isPlaying, roomState?.currentTimeSeconds, playerReady, isHost]);
 
-  useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
-    const vol = muted ? 0 : volume;
-    playerRef.current.setVolume?.(vol);
-  }, [muted, volume, playerReady]);
+  const enableSound = useCallback(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    p.unMute();
+    p.setVolume(volume);
+    setSoundEnabled(true);
+  }, [volume]);
+
+  const toggleMute = useCallback(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (!soundEnabled) {
+      enableSound();
+      return;
+    }
+    const cur = p.getVolume?.() || 0;
+    if (cur === 0) {
+      p.setVolume(volume > 0 ? volume : 80);
+      setVolume(v => v > 0 ? v : 80);
+    } else {
+      p.setVolume(0);
+    }
+  }, [soundEnabled, volume, enableSound]);
+
+  const handleVolumeChange = useCallback((val) => {
+    const p = playerRef.current;
+    if (!p) return;
+    setVolume(val);
+    if (!soundEnabled) {
+      p.unMute();
+      setSoundEnabled(true);
+    }
+    p.setVolume(val);
+  }, [soundEnabled]);
 
   const handlePlayPause = useCallback(() => {
     if (!playerRef.current || !playerReady) return;
@@ -234,10 +247,7 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     setSeekPos(t);
     if (playerRef.current && playerReady) {
       playerRef.current.seekTo(t, true);
-      const S = window.YT?.PlayerState;
-      const pState = playerRef.current.getPlayerState?.();
-      const isPlaying = pState === S?.PLAYING;
-      onStateChange?.({ currentTimeSeconds: t, isPlaying });
+      onStateChange?.({ currentTimeSeconds: t, isPlaying: lastIsPlayingRef.current });
     }
   };
 
@@ -254,6 +264,9 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
+
+  const currentVolume = playerRef.current?.getVolume?.() ?? volume;
+  const isMuted = !soundEnabled || currentVolume === 0;
 
   if (providerType === 'external') {
     return (
@@ -299,26 +312,34 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
           </div>
         )}
 
-        {!isHost && videoId && (
+        {videoId && !soundEnabled && playerReady && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <button
+              onClick={enableSound}
+              className="pointer-events-auto flex flex-col items-center gap-2 px-6 py-4 rounded-2xl transition-all hover:scale-105 active:scale-95"
+              style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(212,175,55,0.4)', backdropFilter: 'blur(8px)' }}>
+              <span className="text-3xl">🔊</span>
+              <span className="text-sm font-bold text-white">Sesi Aç</span>
+              <span className="text-xs text-gray-400">Tıkla ve izle</span>
+            </button>
+          </div>
+        )}
+
+        {videoId && playerReady && (
           <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 px-3 py-1.5 rounded-lg"
             style={{ background: 'rgba(0,0,0,0.8)' }}>
-            <span className="text-xs flex-shrink-0" style={{ color: '#d4af37' }}>🎮</span>
-            <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{formatTime(seekPos)}</span>
+            <span className="text-xs flex-shrink-0 tabular-nums text-gray-400">{formatTime(seekPos)}</span>
             <div className="flex-1" />
-            <button
-              onClick={() => {
-                if (muted) { setMuted(false); setVolume(v => v < 10 ? 80 : v); }
-                else setMuted(true);
-              }}
-              className="text-white text-base px-1 flex-shrink-0"
-              title={muted ? 'Sesi Aç' : 'Sessize Al'}>
-              {muted || volume === 0 ? '🔇' : volume < 40 ? '🔉' : '🔊'}
+            <button onClick={toggleMute} className="text-white text-base px-1 flex-shrink-0">
+              {isMuted ? '🔇' : volume < 40 ? '🔉' : '🔊'}
             </button>
-            <input
-              type="range" min={0} max={100} value={muted ? 0 : volume}
-              onChange={e => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); }}
-              className="w-20 cursor-pointer accent-yellow-500"
-            />
+            {soundEnabled && (
+              <input
+                type="range" min={0} max={100} value={volume}
+                onChange={e => handleVolumeChange(Number(e.target.value))}
+                className="w-20 cursor-pointer accent-yellow-500"
+              />
+            )}
           </div>
         )}
       </div>
@@ -348,11 +369,11 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
               {roomState?.isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
             </button>
 
-            <button onClick={() => setMuted(v => !v)} className="text-white text-sm px-1 flex-shrink-0">
-              {muted ? '🔇' : '🔊'}
+            <button onClick={toggleMute} className="text-white text-sm px-1 flex-shrink-0">
+              {isMuted ? '🔇' : volume < 40 ? '🔉' : '🔊'}
             </button>
-            <input type="range" min={0} max={100} value={muted ? 0 : volume}
-              onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }}
+            <input type="range" min={0} max={100} value={soundEnabled ? volume : 0}
+              onChange={e => handleVolumeChange(Number(e.target.value))}
               className="w-16 cursor-pointer accent-yellow-500" />
 
             <div className="flex-1" />
