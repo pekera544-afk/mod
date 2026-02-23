@@ -102,7 +102,7 @@ export default function RoomPage() {
     socket.emit('join_room', id);
 
     if (user && room.ownerId === user.id) {
-      setTimeout(() => socket.emit('claim_host', id), 500);
+      socket.emit('claim_host', id);
     }
 
     socket.on('host_granted', () => {
@@ -337,17 +337,21 @@ export default function RoomPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden min-h-0">
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <div className="relative flex-shrink-0" style={{ height: canControl ? 'min(calc(56.25vw + 68px), 62vh)' : 'min(56.25vw, 56vh)', minHeight: '200px' }}>
+      <div className="flex flex-1 overflow-hidden min-h-0 flex-col md:flex-row">
+
+        {/* ── VIDEO COLUMN (full width mobile / left 65% desktop) ── */}
+        <div className="flex flex-col flex-shrink-0 w-full md:w-[65%] lg:w-[68%] min-h-0 md:border-r border-gold-DEFAULT/10">
+
+          {/* Video container – aspect-ratio on mobile, fills column on desktop */}
+          <div className="relative w-full aspect-video md:aspect-auto md:flex-1 md:min-h-0">
             {hostDisconnected && !canControl && (
               <div className="absolute top-2 left-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg pointer-events-none"
-                style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
                 <span className="text-sm">📡</span>
                 <p className="text-xs text-gray-300">Host çevrimdışı — video bağımsız devam ediyor</p>
               </div>
             )}
-            <div className="w-full h-full">
+            <div className="absolute inset-0">
               {unlocked && (
                 <VideoPlayer
                   streamUrl={room.streamUrl}
@@ -362,25 +366,32 @@ export default function RoomPage() {
                 />
               )}
             </div>
-            <div className="absolute top-2 right-2 flex gap-1 pointer-events-none">
+            <div className="absolute top-2 right-2 flex gap-1 pointer-events-none z-10">
               {reactions.map(r => (
                 <div key={r.rid} className="text-xl animate-bounce pointer-events-none">{r.reaction}</div>
               ))}
             </div>
           </div>
 
-          <div className="flex gap-1 px-2 py-1.5 border-b border-gold-DEFAULT/10 overflow-x-auto flex-shrink-0"
-            style={{ background: 'rgba(15,15,20,0.9)' }}>
+          {/* Reactions bar */}
+          <div className="flex gap-1 px-2 py-1.5 border-t border-b border-gold-DEFAULT/10 overflow-x-auto flex-shrink-0"
+            style={{ background: 'rgba(12,12,18,0.98)' }}>
             {REACTIONS.map(r => (
               <button key={r} onClick={() => sendReaction(r)}
                 className="text-lg hover:scale-125 transition-transform px-0.5 flex-shrink-0">{r}</button>
             ))}
           </div>
+        </div>
 
-          <div className="flex border-b border-gold-DEFAULT/10 flex-shrink-0">
+        {/* ── CHAT COLUMN (full width mobile below video / right 35% desktop) ── */}
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden" style={{ minHeight: '280px' }}>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gold-DEFAULT/10 flex-shrink-0"
+            style={{ background: 'rgba(12,12,18,0.98)' }}>
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className="flex-1 py-2 text-xs font-semibold transition-colors"
+                className="flex-1 py-2.5 text-xs font-semibold transition-colors"
                 style={{
                   color: activeTab === tab.key ? '#d4af37' : '#6b7280',
                   borderBottom: activeTab === tab.key ? '2px solid #d4af37' : '2px solid transparent',
@@ -391,12 +402,13 @@ export default function RoomPage() {
             ))}
           </div>
 
+          {/* Tab content */}
           <div className="flex-1 overflow-hidden min-h-0">
             {activeTab === 'chat' && (
               <div className="flex flex-col h-full">
                 <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                   {!roomState.chatEnabled && (
-                    <div className="text-center text-xs text-gray-500 py-2">
+                    <div className="text-center text-xs text-gray-500 py-3">
                       💬 Sohbet host tarafından devre dışı bırakıldı
                     </div>
                   )}
@@ -412,7 +424,7 @@ export default function RoomPage() {
                       <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
                         placeholder={spamCooldown > 0 ? `${spamCooldown}s bekleyin...` : 'Mesaj yaz...'}
                         maxLength={500} disabled={spamCooldown > 0}
-                        className="w-full px-3 py-2 rounded-xl text-white text-xs outline-none disabled:opacity-50"
+                        className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none disabled:opacity-50"
                         style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${spamCooldown > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(212,175,55,0.2)'}` }}
                       />
                       {spamCooldown > 0 && (
@@ -420,7 +432,7 @@ export default function RoomPage() {
                       )}
                     </div>
                     <button type="submit" disabled={spamCooldown > 0}
-                      className="btn-gold px-3 py-2 text-xs disabled:opacity-40 flex-shrink-0">↑</button>
+                      className="btn-gold px-3 py-2 text-sm disabled:opacity-40 flex-shrink-0">↑</button>
                   </form>
                 ) : !user ? (
                   <div className="p-2 border-t border-gold-DEFAULT/10 text-center text-xs text-gray-500 flex-shrink-0">
@@ -434,19 +446,19 @@ export default function RoomPage() {
               <div className="overflow-y-auto h-full p-2 space-y-1">
                 {participants.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/5">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-cinema-dark flex-shrink-0"
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-cinema-dark flex-shrink-0"
                       style={{ background: 'linear-gradient(135deg, #d4af37, #a88a20)' }}>
                       {(p.username || 'U')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-white truncate flex items-center gap-1">
+                      <div className="text-sm text-white truncate flex items-center gap-1">
                         {p.username}
                         {p.isOwner && <span className="text-gold-DEFAULT">👑</span>}
                         {p.isModerator && !p.isOwner && <span className="text-blue-400">🛡️</span>}
                         {p.vip && <span className="text-purple-400">💎</span>}
                       </div>
                     </div>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
+                    <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
                   </div>
                 ))}
               </div>

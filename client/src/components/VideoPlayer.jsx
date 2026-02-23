@@ -82,6 +82,7 @@ export default function VideoPlayer({
   const lastIsPlayingRef = useRef(null);
   const hiddenAtRef = useRef(null);
   const hiddenPosRef = useRef(null);
+  const initialSyncDoneRef = useRef(false);
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
@@ -220,17 +221,34 @@ export default function VideoPlayer({
   }, [playerReady]);
 
   useEffect(() => {
+    initialSyncDoneRef.current = false;
+  }, [videoId]);
+
+  useEffect(() => {
     if (!playerReady || !playerRef.current || isHost) return;
     const state = roomState;
     if (!state) return;
     const p = playerRef.current;
+
+    if (!initialSyncDoneRef.current && state.currentTimeSeconds > 0) {
+      initialSyncDoneRef.current = true;
+      const cur = p.getCurrentTime?.() || 0;
+      if (Math.abs(cur - state.currentTimeSeconds) > 1) {
+        p.seekTo(state.currentTimeSeconds, true);
+        setSeekPos(state.currentTimeSeconds);
+      }
+      if (state.isPlaying) { p.playVideo?.(); lastIsPlayingRef.current = true; }
+      else { p.pauseVideo?.(); lastIsPlayingRef.current = false; }
+      return;
+    }
+
     const targetPlaying = state.isPlaying;
     if (targetPlaying !== lastIsPlayingRef.current) {
       if (targetPlaying) p.playVideo?.();
       else p.pauseVideo?.();
       lastIsPlayingRef.current = targetPlaying;
     }
-  }, [roomState?.isPlaying, playerReady, isHost]);
+  }, [roomState?.isPlaying, roomState?.currentTimeSeconds, playerReady, isHost]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current || isHost) return;
