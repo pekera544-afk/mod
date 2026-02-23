@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOutletContext } from 'react-router-dom';
@@ -61,8 +61,12 @@ function MyProfileSettings({ profile, onUpdated }) {
 
   const [bio, setBio] = useState(profile.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl || '');
+  const [avatarMode, setAvatarMode] = useState('url');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState(null);
   const [saving, setSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState(null);
+  const fileInputRef = useRef(null);
 
   const [username, setUsername] = useState(profile.username || '');
   const [usernameMsg, setUsernameMsg] = useState(null);
@@ -76,6 +80,36 @@ function MyProfileSettings({ profile, onUpdated }) {
 
   const isPrivileged = profile.role === 'admin' || profile.role === 'moderator' || profile.vip;
 
+  async function handleFileSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isGif = file.type === 'image/gif';
+    if (isGif && !isPrivileged) {
+      setUploadMsg({ type: 'error', text: 'GIF yüklemek için VIP, Moderatör veya Admin olmanız gerekiyor' });
+      return;
+    }
+    setUploading(true);
+    setUploadMsg(null);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('yoko_token')}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Yükleme başarısız');
+      setAvatarUrl(data.avatarUrl);
+      setUploadMsg({ type: 'success', text: '✓ Fotoğraf yüklendi' });
+      onUpdated?.(data.user);
+    } catch (err) {
+      setUploadMsg({ type: 'error', text: err.message || 'Yükleme hatası' });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function saveProfile() {
     setSaving(true);
     setProfileMsg(null);
@@ -86,7 +120,7 @@ function MyProfileSettings({ profile, onUpdated }) {
         body: JSON.stringify({
           bio,
           avatarUrl,
-          avatarType: isPrivileged && avatarUrl.toLowerCase().includes('.gif') ? 'gif' : 'image'
+          avatarType: isPrivileged && (avatarUrl.toLowerCase().endsWith('.gif') || avatarUrl.toLowerCase().includes('.gif?')) ? 'gif' : 'image'
         })
       });
       const data = await res.json();
@@ -170,16 +204,61 @@ function MyProfileSettings({ profile, onUpdated }) {
       <div className="p-4 space-y-4">
         {activeTab === 'profile' && (
           <>
-            <FieldRow label="Avatar URL">
-              <div className="flex gap-2 items-center">
-                <div className="flex-shrink-0">
-                  <UserAvatar user={{ ...profile, avatarUrl }} size={40} />
+            <FieldRow label="Profil Fotoğrafı">
+              <div className="flex items-center gap-3 mb-3">
+                <UserAvatar user={{ ...profile, avatarUrl, avatarType: profile.avatarType }} size={52} />
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 font-semibold">{profile.username}</span>
+                  {isPrivileged && <span className="text-xs text-purple-400">💎 GIF yükleyebilirsiniz</span>}
                 </div>
-                <InputField value={avatarUrl} onChange={setAvatarUrl}
-                  placeholder="https://i.imgur.com/..." type="url" />
               </div>
-              {isPrivileged && (
-                <p className="text-xs text-gray-600 mt-1">VIP/Mod/Admin: GIF avatar kullanabilirsiniz</p>
+
+              <div className="flex gap-1 mb-3">
+                {[{ k: 'upload', l: '📷 Cihaz / Kamera' }, { k: 'url', l: '🔗 URL ile' }].map(({ k, l }) => (
+                  <button key={k} type="button" onClick={() => { setAvatarMode(k); setUploadMsg(null); }}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: avatarMode === k ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${avatarMode === k ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      color: avatarMode === k ? '#d4af37' : '#6b7280'
+                    }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              {avatarMode === 'upload' ? (
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={isPrivileged ? 'image/jpeg,image/png,image/webp,image/gif' : 'image/jpeg,image/png,image/webp'}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(212,175,55,0.1)', border: '1px dashed rgba(212,175,55,0.4)', color: '#d4af37' }}
+                  >
+                    {uploading ? (
+                      <><span className="animate-spin">⏳</span> Yükleniyor...</>
+                    ) : (
+                      <><span className="text-lg">📷</span> Galeri / Kamera</>
+                    )}
+                  </button>
+                  <p className="text-xs text-gray-600 text-center">
+                    {isPrivileged ? 'JPEG, PNG, WebP, GIF • max 8MB' : 'JPEG, PNG, WebP • max 8MB'}
+                  </p>
+                  <StatusMsg msg={uploadMsg?.text} type={uploadMsg?.type} />
+                </div>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <InputField value={avatarUrl} onChange={setAvatarUrl}
+                    placeholder="https://i.imgur.com/..." type="url" />
+                </div>
               )}
             </FieldRow>
 

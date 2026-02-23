@@ -48,6 +48,12 @@ export default function UserProfileCard({ userId, onClose, socket }) {
     setTimeout(() => setSentMsg(''), 3000);
   }
 
+  function handleClose(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  }
+
   if (!profile && !loading) return null;
 
   const roleInfo = profile ? getRoleLabel(profile) : null;
@@ -56,27 +62,28 @@ export default function UserProfileCard({ userId, onClose, socket }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="glass-card w-full max-w-sm relative"
         style={{ background: 'rgba(15,15,22,0.98)', border: '1px solid rgba(212,175,55,0.25)' }}
-        onClick={e => e.stopPropagation()}
       >
         <button
-          onClick={onClose}
-          className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full transition-colors"
+          onClick={handleClose}
+          onTouchEnd={handleClose}
+          className="absolute top-3 right-3 z-20 flex items-center justify-center rounded-full transition-colors"
           style={{
-            width: 32, height: 32,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: '#9ca3af'
+            width: 40, height: 40,
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            color: '#e5e7eb',
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+          aria-label="Kapat"
         >
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
@@ -85,7 +92,7 @@ export default function UserProfileCard({ userId, onClose, socket }) {
           <div className="p-8 text-center text-gray-400">Yükleniyor...</div>
         ) : profile ? (
           <>
-            <div className="p-5 pr-12">
+            <div className="p-5 pr-14">
               <div className="flex items-start gap-4">
                 <UserAvatar user={profile} size={60} />
                 <div className="flex-1 min-w-0">
