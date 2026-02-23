@@ -10,6 +10,7 @@ const spamTracker = new Map();
 const userSockets = new Map();
 const globalChatParticipants = new Map();
 const dmSpamTracker = new Map();
+const roomDbWriteTime = new Map();
 
 function getLiveParticipantCount(roomId) {
   const map = roomParticipants.get(String(roomId));
@@ -334,7 +335,13 @@ function setupSocket(io) {
         if (dbState) {
           const state = getRoomState(key);
           state.isPlaying = dbState.isPlaying;
-          state.currentTimeSeconds = dbState.currentTimeSeconds;
+          let savedTime = dbState.currentTimeSeconds || 0;
+          if (dbState.isPlaying && dbState.lastUpdatedAt && !roomHosts.has(key)) {
+            const elapsed = (Date.now() - new Date(dbState.lastUpdatedAt).getTime()) / 1000;
+            savedTime = savedTime + elapsed;
+          }
+          state.currentTimeSeconds = savedTime;
+          if (!state.lastUpdated) state.lastUpdated = Date.now();
           state.streamUrl = room.streamUrl;
           state.movieTitle = room.movieTitle;
           state.chatEnabled = room.chatEnabled;
@@ -421,19 +428,26 @@ function setupSocket(io) {
       const key = String(roomId);
       if (!canControl(socket, key)) return;
       const state = getRoomState(key);
+      const prevPlaying = state.isPlaying;
       if (isPlaying !== undefined) state.isPlaying = isPlaying;
       if (currentTimeSeconds !== undefined) state.currentTimeSeconds = currentTimeSeconds;
       if (streamUrl !== undefined) state.streamUrl = streamUrl;
       if (movieTitle !== undefined) state.movieTitle = movieTitle;
       state.lastUpdated = Date.now();
       io.to(key).except(socket.id).emit('room_state', { ...state, hostConnected: true });
-      try {
-        await prisma.roomState.upsert({
-          where: { roomId: Number(roomId) },
-          update: { isPlaying: state.isPlaying, currentTimeSeconds: state.currentTimeSeconds, lastUpdatedAt: new Date() },
-          create: { roomId: Number(roomId), isPlaying: state.isPlaying, currentTimeSeconds: state.currentTimeSeconds }
-        });
-      } catch {}
+      const playingChanged = isPlaying !== undefined && isPlaying !== prevPlaying;
+      const lastWrite = roomDbWriteTime.get(key) || 0;
+      const timeSinceWrite = Date.now() - lastWrite;
+      if (playingChanged || timeSinceWrite > 10000) {
+        roomDbWriteTime.set(key, Date.now());
+        try {
+          await prisma.roomState.upsert({
+            where: { roomId: Number(roomId) },
+            update: { isPlaying: state.isPlaying, currentTimeSeconds: state.currentTimeSeconds, lastUpdatedAt: new Date() },
+            create: { roomId: Number(roomId), isPlaying: state.isPlaying, currentTimeSeconds: state.currentTimeSeconds }
+          });
+        } catch {}
+      }
     });
 
     socket.on('player_sync_request', ({ roomId }) => {
@@ -687,7 +701,22 @@ function handleLeaveRoom(socket, key, io) {
   }
   if (roomHosts.get(key) === socket.id) {
     roomHosts.delete(key);
-    io.to(key).emit('host_changed', { hostConnected: false });
+    const state = getRoomState(key);
+    if (state.isPlaying && state.lastUpdated) {
+      const elapsed = (Date.now() - state.lastUpdated) / 1000;
+      state.currentTimeSeconds = (state.currentTimeSeconds || 0) + elapsed;
+      state.lastUpdated = Date.now();
+      prisma.roomState.upsert({
+        where: { roomId: Number(key) },
+        update: { currentTimeSeconds: state.currentTimeSeconds, isPlaying: true, lastUpdatedAt: new Date() },
+        create: { roomId: Number(key), isPlaying: true, currentTimeSeconds: state.currentTimeSeconds }
+      }).catch(() => {});
+    }
+    io.to(key).emit('host_changed', {
+      hostConnected: false,
+      currentTimeSeconds: state.currentTimeSeconds,
+      isPlaying: state.isPlaying,
+    });
   }
 }
 

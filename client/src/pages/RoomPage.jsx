@@ -128,10 +128,15 @@ export default function RoomPage() {
       if (state.isModerator) setIsModerator(true);
     });
 
-    socket.on('host_changed', ({ hostConnected }) => {
+    socket.on('host_changed', ({ hostConnected, currentTimeSeconds, isPlaying }) => {
       if (!hostConnected) {
         setHostDisconnected(true);
-        setRoomState(prev => ({ ...prev, isPlaying: false, hostConnected: false }));
+        setRoomState(prev => ({
+          ...prev,
+          hostConnected: false,
+          ...(currentTimeSeconds !== undefined ? { currentTimeSeconds } : {}),
+          ...(isPlaying !== undefined ? { isPlaying } : {}),
+        }));
       } else {
         setHostDisconnected(false);
         setRoomState(prev => ({ ...prev, hostConnected: true }));
@@ -325,15 +330,12 @@ export default function RoomPage() {
 
       <div className="flex flex-1 overflow-hidden min-h-0">
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <div className="relative flex-shrink-0" style={{ height: '44%', minHeight: '180px', maxHeight: '320px' }}>
+          <div className="relative flex-shrink-0" style={{ height: '45vw', minHeight: '200px', maxHeight: '340px' }}>
             {hostDisconnected && !canControl && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center"
-                style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}>
-                <div className="text-center p-4">
-                  <div className="text-4xl mb-3 animate-pulse">⏸️</div>
-                  <p className="font-bold text-white text-sm">Host bağlantısı kesildi</p>
-                  <p className="text-xs text-gray-400 mt-1">Host geri döndüğünde yayın devam edecek</p>
-                </div>
+              <div className="absolute top-2 left-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg pointer-events-none"
+                style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+                <span className="text-sm">📡</span>
+                <p className="text-xs text-gray-300">Host çevrimdışı — video bağımsız devam ediyor</p>
               </div>
             )}
             <div className="w-full h-full">

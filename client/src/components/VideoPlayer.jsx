@@ -37,15 +37,25 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
   const mountRef = useRef(null);
   const playerRef = useRef(null);
   const roomStateRef = useRef(roomState);
+  const isHostRef = useRef(isHost);
+  const onStateChangeRef = useRef(onStateChange);
+
   const [playerReady, setPlayerReady] = useState(false);
   const [muted, setMuted] = useState(!isHost);
   const [volume, setVolume] = useState(80);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [newUrl, setNewUrl] = useState('');
-  const syncRef = useRef(null);
+  const [duration, setDuration] = useState(0);
+  const [seekPos, setSeekPos] = useState(0);
+
+  const syncIntervalRef = useRef(null);
+  const sliderDraggingRef = useRef(false);
   const destroyedRef = useRef(false);
+  const lastAppliedRef = useRef({ isPlaying: null, time: -999 });
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+  useEffect(() => { onStateChangeRef.current = onStateChange; }, [onStateChange]);
 
   const videoId = providerType === 'youtube' ? getVideoId(streamUrl) : '';
 
@@ -53,6 +63,9 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     if (!videoId || providerType !== 'youtube') return;
     destroyedRef.current = false;
     setPlayerReady(false);
+    setDuration(0);
+    setSeekPos(0);
+    lastAppliedRef.current = { isPlaying: null, time: -999 };
 
     loadYTApi(() => {
       if (destroyedRef.current || !mountRef.current) return;
@@ -84,23 +97,38 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
             const p = e.target;
             const state = roomStateRef.current;
             const syncTime = state?.currentTimeSeconds || 0;
+            const dur = p.getDuration?.() || 0;
+            if (dur > 0) setDuration(dur);
+            setSeekPos(syncTime);
             p.seekTo(syncTime, true);
-            p.playVideo();
-            if (isHost) {
+            if (state?.isPlaying) p.playVideo();
+            else p.pauseVideo();
+            if (isHostRef.current) {
               p.unMute();
-              p.setVolume(volume);
+              p.setVolume(80);
             } else {
               p.mute();
               p.setVolume(0);
             }
+            lastAppliedRef.current = { isPlaying: state?.isPlaying, time: syncTime };
             setPlayerReady(true);
           },
           onStateChange(e) {
-            if (!isHost || destroyedRef.current) return;
+            if (destroyedRef.current) return;
+            if (!isHostRef.current) return;
             const S = window.YT.PlayerState;
-            const t = playerRef.current?.getCurrentTime?.() || 0;
-            if (e.data === S.PLAYING) onStateChange?.({ isPlaying: true, currentTimeSeconds: t });
-            else if (e.data === S.PAUSED) onStateChange?.({ isPlaying: false, currentTimeSeconds: t });
+            const p = playerRef.current;
+            if (!p) return;
+            const dur = p.getDuration?.() || 0;
+            if (dur > 0) setDuration(dur);
+            const t = p.getCurrentTime?.() || 0;
+            if (e.data === S.PLAYING) {
+              onStateChangeRef.current?.({ isPlaying: true, currentTimeSeconds: t });
+            } else if (e.data === S.PAUSED) {
+              onStateChangeRef.current?.({ isPlaying: false, currentTimeSeconds: t });
+            } else if (e.data === S.ENDED) {
+              onStateChangeRef.current?.({ isPlaying: false, currentTimeSeconds: t });
+            }
           },
         },
       });
@@ -108,7 +136,7 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
 
     return () => {
       destroyedRef.current = true;
-      if (syncRef.current) clearInterval(syncRef.current);
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
       if (playerRef.current) {
         try { playerRef.current.destroy(); } catch {}
         playerRef.current = null;
@@ -118,24 +146,68 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
   }, [videoId, providerType]);
 
   useEffect(() => {
-    if (!playerReady || !playerRef.current || isHost) return;
-    const p = playerRef.current;
-    const cur = p.getCurrentTime?.() || 0;
-    const drift = Math.abs(cur - (roomState?.currentTimeSeconds || 0));
-    if (drift > 3) p.seekTo(roomState.currentTimeSeconds, true);
-    if (roomState?.isPlaying) p.playVideo?.();
-    else p.pauseVideo?.();
-  }, [roomState?.isPlaying, roomState?.currentTimeSeconds, playerReady, isHost]);
+    if (!playerReady) return;
+    if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+
+    syncIntervalRef.current = setInterval(() => {
+      const p = playerRef.current;
+      if (!p || destroyedRef.current) return;
+
+      const t = p.getCurrentTime?.() || 0;
+      const dur = p.getDuration?.() || 0;
+      if (dur > 0 && dur !== duration) setDuration(dur);
+      if (!sliderDraggingRef.current) setSeekPos(t);
+
+      if (isHostRef.current) {
+        const S = window.YT?.PlayerState;
+        const pState = p.getPlayerState?.();
+        const isPlaying = pState === S?.PLAYING;
+        onStateChangeRef.current?.({ currentTimeSeconds: t, isPlaying });
+      } else {
+        const state = roomStateRef.current;
+        if (!state) return;
+        const drift = t - (state.currentTimeSeconds || 0);
+        const absDrift = Math.abs(drift);
+        const last = lastAppliedRef.current;
+        const playingChanged = state.isPlaying !== last.isPlaying;
+        const needsSeek = absDrift > 5;
+
+        if (needsSeek) {
+          p.seekTo(state.currentTimeSeconds, true);
+        }
+        if (playingChanged || needsSeek) {
+          if (state.isPlaying) p.playVideo?.();
+          else p.pauseVideo?.();
+          lastAppliedRef.current = { isPlaying: state.isPlaying, time: state.currentTimeSeconds };
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(syncIntervalRef.current);
+  }, [playerReady]);
 
   useEffect(() => {
-    if (!playerReady || !isHost) return;
-    if (syncRef.current) clearInterval(syncRef.current);
-    syncRef.current = setInterval(() => {
-      const t = playerRef.current?.getCurrentTime?.() || 0;
-      onStateChange?.({ currentTimeSeconds: t });
-    }, 2000);
-    return () => clearInterval(syncRef.current);
-  }, [playerReady, isHost, onStateChange]);
+    if (!playerReady || !playerRef.current || isHost) return;
+    const state = roomState;
+    if (!state) return;
+
+    const p = playerRef.current;
+    const cur = p.getCurrentTime?.() || 0;
+    const drift = Math.abs(cur - (state.currentTimeSeconds || 0));
+    const last = lastAppliedRef.current;
+    const playingChanged = state.isPlaying !== last.isPlaying;
+    const needsSeek = drift > 5;
+
+    if (needsSeek) {
+      p.seekTo(state.currentTimeSeconds, true);
+      setSeekPos(state.currentTimeSeconds);
+    }
+    if (playingChanged || needsSeek) {
+      if (state.isPlaying) p.playVideo?.();
+      else p.pauseVideo?.();
+      lastAppliedRef.current = { isPlaying: state.isPlaying, time: state.currentTimeSeconds };
+    }
+  }, [roomState?.isPlaying, roomState?.currentTimeSeconds, playerReady, isHost]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
@@ -156,11 +228,33 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
     else playerRef.current.playVideo();
   }, [playerReady]);
 
+  const handleSeekStart = () => { sliderDraggingRef.current = true; };
+  const handleSeekChange = (e) => { setSeekPos(Number(e.target.value)); };
+  const handleSeekEnd = (e) => {
+    sliderDraggingRef.current = false;
+    const t = Number(e.target.value);
+    setSeekPos(t);
+    if (playerRef.current && playerReady) {
+      playerRef.current.seekTo(t, true);
+      const S = window.YT?.PlayerState;
+      const pState = playerRef.current.getPlayerState?.();
+      const isPlaying = pState === S?.PLAYING;
+      onStateChange?.({ currentTimeSeconds: t, isPlaying });
+    }
+  };
+
   const applyUrl = () => {
     if (!newUrl.trim()) return;
     onUrlChange?.(newUrl.trim());
     setShowUrlInput(false);
     setNewUrl('');
+  };
+
+  const formatTime = (s) => {
+    if (!s || isNaN(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
   if (providerType === 'external') {
@@ -194,8 +288,8 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="relative flex-1 bg-black overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-black">
+      <div className="relative flex-1 overflow-hidden min-h-0">
         <div ref={mountRef} className="w-full h-full" style={{ pointerEvents: isHost ? 'auto' : 'none' }} />
 
         {!videoId && (
@@ -208,49 +302,68 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
         )}
 
         {!isHost && videoId && (
-          <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 px-3 py-2 rounded-lg"
-            style={{ background: 'rgba(0,0,0,0.75)' }}>
-            <span className="text-xs" style={{ color: '#d4af37' }}>🎮 Host kontrolü</span>
+          <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            style={{ background: 'rgba(0,0,0,0.8)' }}>
+            <span className="text-xs flex-shrink-0" style={{ color: '#d4af37' }}>🎮 Host</span>
+            <span className="text-xs text-gray-400 flex-shrink-0">{formatTime(seekPos)}</span>
             <div className="flex-1" />
-            <button onClick={() => setMuted(v => !v)} className="text-white text-lg px-2" title={muted ? 'Sesi Aç' : 'Sessize Al'}>
+            <button onClick={() => setMuted(v => !v)} className="text-white text-base px-1 flex-shrink-0" title={muted ? 'Sesi Aç' : 'Sessize Al'}>
               {muted ? '🔇' : '🔊'}
             </button>
             {!muted && (
               <input type="range" min={0} max={100} value={volume}
                 onChange={e => setVolume(Number(e.target.value))}
-                className="w-20 cursor-pointer accent-yellow-500" />
+                className="w-16 cursor-pointer accent-yellow-500" />
             )}
           </div>
         )}
       </div>
 
       {isHost && (
-        <div className="p-3 flex flex-wrap items-center gap-2"
+        <div className="flex-shrink-0 px-3 pt-2 pb-1.5 flex flex-col gap-1.5"
           style={{ background: 'rgba(15,15,20,0.98)', borderTop: '1px solid rgba(212,175,55,0.15)' }}>
-          <button onClick={handlePlayPause} disabled={!playerReady}
-            className="btn-gold px-4 py-1.5 text-sm flex items-center gap-1 disabled:opacity-40">
-            {roomState?.isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
-          </button>
+          {duration > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{formatTime(seekPos)}</span>
+              <input
+                type="range" min={0} max={Math.floor(duration)} value={Math.floor(seekPos)}
+                onMouseDown={handleSeekStart}
+                onTouchStart={handleSeekStart}
+                onChange={handleSeekChange}
+                onMouseUp={handleSeekEnd}
+                onTouchEnd={handleSeekEnd}
+                className="flex-1 cursor-pointer accent-yellow-500"
+                style={{ height: '4px' }}
+              />
+              <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{formatTime(duration)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={handlePlayPause} disabled={!playerReady}
+              className="btn-gold px-3 py-1 text-xs flex items-center gap-1 disabled:opacity-40 flex-shrink-0">
+              {roomState?.isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
+            </button>
 
-          <button onClick={() => setMuted(v => !v)} className="text-white text-sm px-1">
-            {muted ? '🔇' : '🔊'}
-          </button>
-          <input type="range" min={0} max={100} value={muted ? 0 : volume}
-            onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }}
-            className="w-20 cursor-pointer accent-yellow-500" />
+            <button onClick={() => setMuted(v => !v)} className="text-white text-sm px-1 flex-shrink-0">
+              {muted ? '🔇' : '🔊'}
+            </button>
+            <input type="range" min={0} max={100} value={muted ? 0 : volume}
+              onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }}
+              className="w-16 cursor-pointer accent-yellow-500" />
 
-          <div className="flex-1" />
+            <div className="flex-1" />
 
-          {!showUrlInput
-            ? <button onClick={() => setShowUrlInput(true)} className="btn-outline-gold text-xs px-3 py-1.5">🔗 URL Değiştir</button>
-            : <div className="flex gap-1.5 flex-1">
-                <input value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="Yeni YouTube URL..."
-                  className="flex-1 px-2 py-1.5 rounded-lg text-white text-xs outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-                <button onClick={applyUrl} className="btn-gold px-3 text-xs">✓</button>
-                <button onClick={() => setShowUrlInput(false)} className="text-gray-400 px-2 text-xs">✕</button>
-              </div>
-          }
+            {!showUrlInput
+              ? <button onClick={() => setShowUrlInput(true)} className="btn-outline-gold text-xs px-2 py-1 flex-shrink-0">🔗 URL</button>
+              : <div className="flex gap-1 flex-1 min-w-0">
+                  <input value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="YouTube URL..."
+                    className="flex-1 px-2 py-1 rounded-lg text-white text-xs outline-none min-w-0"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
+                  <button onClick={applyUrl} className="btn-gold px-2 text-xs flex-shrink-0">✓</button>
+                  <button onClick={() => setShowUrlInput(false)} className="text-gray-400 px-1 text-xs flex-shrink-0">✕</button>
+                </div>
+            }
+          </div>
         </div>
       )}
     </div>
