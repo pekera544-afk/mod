@@ -715,7 +715,6 @@ function handleLeaveRoom(socket, key, io) {
     io.to(key).emit('host_changed', {
       hostConnected: false,
       currentTimeSeconds: state.currentTimeSeconds,
-      isPlaying: state.isPlaying,
     });
   }
 }

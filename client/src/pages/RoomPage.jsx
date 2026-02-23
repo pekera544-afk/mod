@@ -128,14 +128,13 @@ export default function RoomPage() {
       if (state.isModerator) setIsModerator(true);
     });
 
-    socket.on('host_changed', ({ hostConnected, currentTimeSeconds, isPlaying }) => {
+    socket.on('host_changed', ({ hostConnected, currentTimeSeconds }) => {
       if (!hostConnected) {
         setHostDisconnected(true);
         setRoomState(prev => ({
           ...prev,
           hostConnected: false,
           ...(currentTimeSeconds !== undefined ? { currentTimeSeconds } : {}),
-          ...(isPlaying !== undefined ? { isPlaying } : {}),
         }));
       } else {
         setHostDisconnected(false);
@@ -330,7 +329,7 @@ export default function RoomPage() {
 
       <div className="flex flex-1 overflow-hidden min-h-0">
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <div className="relative flex-shrink-0" style={{ height: 'min(56.25vw, 52vh)', minHeight: '180px' }}>
+          <div className="relative flex-shrink-0" style={{ height: canControl ? 'min(calc(56.25vw + 68px), 62vh)' : 'min(56.25vw, 56vh)', minHeight: '200px' }}>
             {hostDisconnected && !canControl && (
               <div className="absolute top-2 left-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg pointer-events-none"
                 style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>

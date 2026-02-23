@@ -94,6 +94,7 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
           playsinline: 1,
           modestbranding: 1,
           enablejsapi: 1,
+          vq: 'hd1080',
           origin: window.location.origin,
         },
         events: {
@@ -105,6 +106,8 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
             const dur = p.getDuration?.() || 0;
             if (dur > 0) setDuration(dur);
             setSeekPos(syncTime);
+            try { p.setPlaybackQuality('hd1080'); } catch {}
+            try { p.setPlaybackQualityRange?.('hd720', 'hd1080'); } catch {}
             p.seekTo(syncTime, true);
             if (state?.isPlaying) p.playVideo();
             else p.pauseVideo();
