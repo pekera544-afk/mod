@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import XpBar from './XpBar';
 import BadgeList, { getUsernameClass, getRoleLabel } from './RoleBadge';
 
-export default function UserProfileCard({ userId, onClose, socket }) {
+function ProfileCardContent({ userId, onClose, socket }) {
   const { user: me } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,9 +29,8 @@ export default function UserProfileCard({ userId, onClose, socket }) {
     })
       .then(r => r.json())
       .then(friends => {
-        if (Array.isArray(friends) && friends.find(f => f.id === userId)) {
+        if (Array.isArray(friends) && friends.find(f => f.id === userId))
           setFriendStatus('friends');
-        }
       });
   }, [me, userId]);
 
@@ -48,12 +48,6 @@ export default function UserProfileCard({ userId, onClose, socket }) {
     setTimeout(() => setSentMsg(''), 3000);
   }
 
-  function handleClose(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    onClose();
-  }
-
   if (!profile && !loading) return null;
 
   const roleInfo = profile ? getRoleLabel(profile) : null;
@@ -61,117 +55,175 @@ export default function UserProfileCard({ userId, onClose, socket }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
+      onPointerDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="glass-card w-full max-w-sm relative"
-        style={{ background: 'rgba(15,15,22,0.98)', border: '1px solid rgba(212,175,55,0.25)' }}
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 360,
+          background: 'rgba(15,15,22,0.99)',
+          border: '1px solid rgba(212,175,55,0.25)',
+          borderRadius: 20,
+          overflow: 'hidden',
+        }}
+        onPointerDown={e => e.stopPropagation()}
       >
         <button
-          onClick={handleClose}
-          onTouchEnd={handleClose}
-          className="absolute top-3 right-3 z-20 flex items-center justify-center rounded-full transition-colors"
+          type="button"
+          onPointerDown={e => { e.stopPropagation(); onClose(); }}
           style={{
-            width: 40, height: 40,
-            background: 'rgba(255,255,255,0.1)',
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 10,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.12)',
             border: '1px solid rgba(255,255,255,0.2)',
-            color: '#e5e7eb',
+            color: '#fff',
             cursor: 'pointer',
-            touchAction: 'manipulation'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent',
           }}
           aria-label="Kapat"
         >
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
 
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Yükleniyor...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Yükleniyor...</div>
         ) : profile ? (
           <>
-            <div className="p-5 pr-14">
-              <div className="flex items-start gap-4">
+            <div style={{ padding: '20px 56px 20px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                 <UserAvatar user={profile} size={60} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-base font-bold ${usernameClass}`}>{profile.username}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }} className={usernameClass}>
+                      {profile.username}
+                    </span>
                     {roleInfo && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: `${roleInfo.color}22`, color: roleInfo.color }}>
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                        background: `${roleInfo.color}22`, color: roleInfo.color
+                      }}>
                         {roleInfo.icon} {roleInfo.label}
                       </span>
                     )}
                   </div>
-                  <div className="mt-1">
+                  <div style={{ marginTop: 4 }}>
                     <BadgeList badges={profile.badges} size={16} />
                   </div>
-                  <div className="mt-2">
+                  <div style={{ marginTop: 8 }}>
                     <XpBar xp={profile.xp} level={profile.level} showLabel={true} />
                   </div>
                 </div>
               </div>
 
               {profile.bio && (
-                <p className="mt-3 text-sm text-gray-400 leading-relaxed"
-                  style={{ borderLeft: '2px solid rgba(212,175,55,0.3)', paddingLeft: 10 }}>
+                <p style={{
+                  marginTop: 12, fontSize: 13, color: '#9ca3af', lineHeight: 1.5,
+                  borderLeft: '2px solid rgba(212,175,55,0.35)', paddingLeft: 10
+                }}>
                   {profile.bio}
                 </p>
               )}
 
-              <div className="mt-3 text-xs text-gray-600">
+              <div style={{ marginTop: 10, fontSize: 11, color: '#4b5563' }}>
                 Üyelik: {new Date(profile.createdAt).toLocaleDateString('tr-TR')}
               </div>
             </div>
 
             {me && me.id !== userId && (
-              <div className="border-t border-white/5 p-4 flex gap-2 flex-col">
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {friendStatus !== 'friends' && (
                   <button
-                    onClick={sendFriendRequest}
+                    type="button"
+                    onPointerDown={sendFriendRequest}
                     disabled={friendStatus === 'pending'}
-                    className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
                     style={{
-                      background: friendStatus === 'pending' ? 'rgba(212,175,55,0.1)' : 'rgba(212,175,55,0.15)',
-                      color: '#d4af37',
-                      border: '1px solid rgba(212,175,55,0.3)'
+                      width: '100%', padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 600,
+                      background: friendStatus === 'pending' ? 'rgba(212,175,55,0.08)' : 'rgba(212,175,55,0.15)',
+                      color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)', cursor: 'pointer',
+                      touchAction: 'manipulation'
                     }}
                   >
                     {friendStatus === 'pending' ? '⏳ İstek Gönderildi' : '➕ Arkadaş Ekle'}
                   </button>
                 )}
                 {friendStatus === 'friends' && (
-                  <div className="text-center text-sm text-green-400 py-1">✓ Arkadaşsınız</div>
+                  <div style={{ textAlign: 'center', fontSize: 13, color: '#86efac', padding: '4px 0' }}>✓ Arkadaşsınız</div>
                 )}
                 <button
-                  onClick={() => setOpenDM(!openDM)}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
+                  type="button"
+                  onPointerDown={() => setOpenDM(v => !v)}
+                  style={{
+                    width: '100%', padding: '10px 0', borderRadius: 12, fontSize: 13, fontWeight: 600,
+                    background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
+                    border: '1px solid rgba(59,130,246,0.3)', cursor: 'pointer', touchAction: 'manipulation'
+                  }}
                 >
                   💬 Özel Mesaj
                 </button>
                 {openDM && (
-                  <div className="flex gap-2 mt-1">
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <input
                       value={dmMsg}
                       onChange={e => setDmMsg(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && sendDM()}
                       placeholder="Mesajınız..."
-                      className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-sm text-white border border-white/10 focus:outline-none focus:border-blue-500/50"
+                      style={{
+                        flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 10,
+                        padding: '8px 12px', fontSize: 13, color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.1)', outline: 'none'
+                      }}
                     />
-                    <button onClick={sendDM} className="btn-gold text-xs px-3 py-2 rounded-lg flex-shrink-0">Gönder</button>
+                    <button
+                      type="button"
+                      onPointerDown={sendDM}
+                      className="btn-gold"
+                      style={{ fontSize: 12, padding: '8px 14px', borderRadius: 10, touchAction: 'manipulation' }}
+                    >
+                      Gönder
+                    </button>
                   </div>
                 )}
-                {sentMsg && <div className="text-xs text-green-400 text-center">✓ Mesaj gönderildi</div>}
+                {sentMsg && <div style={{ fontSize: 12, color: '#86efac', textAlign: 'center' }}>✓ Mesaj gönderildi</div>}
               </div>
             )}
           </>
         ) : (
-          <div className="p-8 text-center text-gray-400">Kullanıcı bulunamadı</div>
+          <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Kullanıcı bulunamadı</div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function UserProfileCard({ userId, onClose, socket }) {
+  if (!userId) return null;
+  return createPortal(
+    <ProfileCardContent userId={userId} onClose={onClose} socket={socket} />,
+    document.body
   );
 }
