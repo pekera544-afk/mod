@@ -40,6 +40,9 @@ if (fs.existsSync(distPath)) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
+      } else if (filePath.endsWith('sw.js') || filePath.endsWith('manifest.webmanifest')) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
       } else if (/\.(js|css|woff2?|png|jpg|svg|ico)$/.test(filePath)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       }

@@ -1,6 +1,5 @@
-const CACHE_NAME = 'mod-club-v5';
+const CACHE_NAME = 'mod-club-v6';
 const STATIC_ASSETS = [
-  '/',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];
@@ -18,9 +17,13 @@ self.addEventListener('activate', (event) => {
       Promise.all(
         names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
       )
-    )
+    ).then(() => {
+      self.clients.claim();
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED' }));
+      });
+    })
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -37,7 +40,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+  if (url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname === '/sw.js') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/'))
     );
@@ -45,13 +48,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.svg') ||
-    url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.woff')
+    url.pathname.startsWith('/assets/')
   ) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
