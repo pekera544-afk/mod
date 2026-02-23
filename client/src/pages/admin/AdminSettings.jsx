@@ -1,75 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
-import UserAvatar from '../../components/UserAvatar';
-
-function HeroCardUserSelector({ currentUser, onSelect, onClear }) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setSearching(true);
-      axios.get(`/api/admin/users/search?q=${encodeURIComponent(query)}`)
-        .then(r => setResults(r.data))
-        .catch(() => {})
-        .finally(() => setSearching(false));
-    }, 300);
-  }, [query]);
-
-  return (
-    <div className="space-y-3">
-      {currentUser ? (
-        <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.25)' }}>
-          <UserAvatar user={currentUser} size={52} />
-          <div className="flex-1">
-            <div className="text-sm font-bold text-white">{currentUser.username}</div>
-            <div className="text-xs text-gray-400">{currentUser.frameType ? `Çerçeve: ${currentUser.frameType}` : 'Çerçevesiz'} • Lv.{currentUser.level}</div>
-            {currentUser.bio && <div className="text-xs text-gray-500 mt-0.5 truncate">{currentUser.bio}</div>}
-          </div>
-          <button onClick={onClear}
-            className="text-xs px-3 py-1.5 rounded-lg"
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
-            Kaldır
-          </button>
-        </div>
-      ) : (
-        <div className="text-xs text-gray-500 p-2">Kart üzerinde görünecek kullanıcı seçilmedi</div>
-      )}
-
-      <div className="relative">
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Kullanıcı ara (min. 2 karakter)..."
-          className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
-        />
-        {searching && <div className="absolute right-3 top-2.5 text-xs text-gray-400 animate-pulse">Arıyor...</div>}
-      </div>
-
-      {results.length > 0 && (
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)' }}>
-          {results.map(u => (
-            <button key={u.id} onClick={() => { onSelect(u); setQuery(''); setResults([]); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all hover:bg-white/5"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <UserAvatar user={u} size={32} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-white truncate">{u.username}</div>
-                <div className="text-xs text-gray-500">{u.role} • Lv.{u.level} {u.frameType && `• ${u.frameType} çerçeve`}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AdminSettings() {
   const { refresh } = useSettings();
@@ -77,9 +8,11 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
-  useEffect(() => {
+  const load = () => {
     axios.get('/api/admin/settings').then(r => setForm(r.data)).catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -88,7 +21,8 @@ export default function AdminSettings() {
     try {
       const { id, updatedAt, heroCardUser, ...data } = form;
       await axios.put('/api/admin/settings', data);
-      refresh();
+      await refresh();
+      load();
       setMsg('✅ Ayarlar kaydedildi!');
     } catch {
       setMsg('❌ Kaydetme hatası');
@@ -142,109 +76,6 @@ export default function AdminSettings() {
       {msg && <div className="p-3 rounded-lg text-sm glass-card">{msg}</div>}
 
       <form onSubmit={handleSave} className="space-y-6">
-
-        <div className="glass-card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">
-            🎴 Hero Kart — Öne Çıkan Kullanıcı
-          </h3>
-          <p className="text-xs text-gray-500">
-            Ana sayfadaki MOD CLUB kartında kurt resmi yerine seçilen kullanıcının profili (çerçevesiyle birlikte) gösterilir.
-          </p>
-          <HeroCardUserSelector
-            currentUser={form.heroCardUser || null}
-            onSelect={(u) => setForm(p => ({ ...p, heroCardUserId: u.id, heroCardUser: u }))}
-            onClear={() => setForm(p => ({ ...p, heroCardUserId: null, heroCardUser: null }))}
-          />
-        </div>
-
-        <div className="glass-card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">
-            ✏️ Hero Kart Yazıları
-          </h3>
-          <p className="text-xs text-gray-500">Ana sayfadaki MOD CLUB kartının içindeki tüm yazıları buradan düzenleyin.</p>
-
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Alt Yazı (örn: "Sesin Gücü Bizde!")</label>
-            <input
-              type="text" value={form.heroCardSubtitle || ''}
-              onChange={e => setForm(p => ({ ...p, heroCardSubtitle: e.target.value }))}
-              placeholder="Sesin Gücü Bizde!"
-              className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
-            />
-          </div>
-
-          <div className="p-3 rounded-xl space-y-3" style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.1)' }}>
-            <p className="text-xs font-semibold text-gold-DEFAULT">📊 İstatistik Satırı 1</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">İkon (emoji)</label>
-                <input type="text" value={form.heroCardStat1Icon || ''} maxLength={4}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat1Icon: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-center"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Değer (bold)</label>
-                <input type="text" value={form.heroCardStat1Value || ''}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat1Value: e.target.value }))}
-                  placeholder="145"
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Etiket</label>
-                <input type="text" value={form.heroCardStat1Label || ''}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat1Label: e.target.value }))}
-                  placeholder="Aktif Yayıncı"
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-            </div>
-            <div className="text-xs text-gray-600 flex items-center gap-1">
-              <span>Önizleme:</span>
-              <span className="px-1 py-0.5 rounded" style={{ background: 'rgba(212,175,55,0.1)', color: '#9ca3af' }}>
-                {form.heroCardStat1Icon} <strong className="text-white">{form.heroCardStat1Value}</strong> {form.heroCardStat1Label}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl space-y-3" style={{ background: 'rgba(155,89,182,0.04)', border: '1px solid rgba(155,89,182,0.1)' }}>
-            <p className="text-xs font-semibold" style={{ color: '#c084fc' }}>📊 İstatistik Satırı 2</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">İkon (emoji)</label>
-                <input type="text" value={form.heroCardStat2Icon || ''} maxLength={4}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat2Icon: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none text-center"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Değer (bold)</label>
-                <input type="text" value={form.heroCardStat2Value || ''}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat2Value: e.target.value }))}
-                  placeholder="98,750 ₺"
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Etiket</label>
-                <input type="text" value={form.heroCardStat2Label || ''}
-                  onChange={e => setForm(p => ({ ...p, heroCardStat2Label: e.target.value }))}
-                  placeholder="Bu Ayki Kazanç"
-                  className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }} />
-              </div>
-            </div>
-            <div className="text-xs text-gray-600 flex items-center gap-1">
-              <span>Önizleme:</span>
-              <span className="px-1 py-0.5 rounded" style={{ background: 'rgba(155,89,182,0.1)', color: '#9ca3af' }}>
-                {form.heroCardStat2Icon} <strong className="text-white">{form.heroCardStat2Value}</strong> {form.heroCardStat2Label}
-              </span>
-            </div>
-          </div>
-        </div>
-
         <div className="glass-card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">Marka Ayarları</h3>
           {brandFields.map(f => (

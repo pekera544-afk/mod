@@ -32,6 +32,7 @@ export default function AdminDashboard() {
   }, []);
 
   const quickLinks = [
+    { href: '/admin/card', label: 'Kart Ayarları', icon: '🃏', desc: 'MOD CLUB kart içeriği' },
     { href: '/admin/settings', label: 'Site Ayarları', icon: '🎨', desc: 'Logo, başlık, renkler' },
     { href: '/admin/pwa', label: 'PWA Ayarları', icon: '📱', desc: 'Manifest ve servis worker' },
     { href: '/admin/rooms', label: 'Sinema Odaları', icon: '🎬', desc: 'Oda ekle, düzenle' },

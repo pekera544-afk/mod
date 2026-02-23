@@ -48,6 +48,8 @@ model Settings {
   heroCardStat2Icon   String   @default("🏆")
   heroCardStat2Value  String   @default("98,750 ₺")
   heroCardStat2Label  String   @default("Bu Ayki Kazanç")
+  heroCardStat3Icon   String   @default("✨")
+  heroCardStat3Label  String   @default("Oda Aktif")
   updatedAt           DateTime @updatedAt
 }
 

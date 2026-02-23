@@ -5,6 +5,7 @@ import { brand } from '../../config/brand';
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard', icon: '📊', exact: true },
+  { href: '/admin/card', label: 'Kart Ayarları', icon: '🃏' },
   { href: '/admin/settings', label: 'Site Ayarları', icon: '🎨' },
   { href: '/admin/pwa', label: 'PWA Ayarları', icon: '📱' },
   { href: '/admin/users', label: 'Kullanıcılar', icon: '👥' },

@@ -21,6 +21,7 @@ import AdminAnnouncements from './pages/admin/AdminAnnouncements';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNews from './pages/admin/AdminNews';
+import AdminCardSettings from './pages/admin/AdminCardSettings';
 
 function ProtectedAdmin({ children }) {
   const { user, loading } = useAuth();
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="events" element={<AdminEvents />} />
         <Route path="audit-log" element={<AdminAuditLog />} />
         <Route path="news" element={<AdminNews />} />
+        <Route path="card" element={<AdminCardSettings />} />
       </Route>
     </Routes>
   );

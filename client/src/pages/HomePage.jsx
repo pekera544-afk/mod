@@ -385,13 +385,15 @@ export default function HomePage() {
                     )}
                     <div className="flex items-center gap-2 text-xs">
                       <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs"
-                        style={{ background: 'rgba(212,175,55,0.2)' }}>✨</span>
+                        style={{ background: 'rgba(34,197,94,0.15)' }}>
+                        {settings?.heroCardStat3Icon || '✨'}
+                      </span>
                       <span className="text-gray-300">Şu An</span>
                       <span className="font-black px-2 py-0.5 rounded-lg text-xs"
                         style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
                         {activeRoomCount}
                       </span>
-                      <span className="text-gray-300">Oda Aktif</span>
+                      <span className="text-gray-300">{settings?.heroCardStat3Label || 'Oda Aktif'}</span>
                     </div>
                   </div>
                 </div>
