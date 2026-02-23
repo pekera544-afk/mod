@@ -33,9 +33,32 @@ function loadYTApi(cb) {
   };
 }
 
+function setupMediaSession(p, title) {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: title || 'Sinema Odası',
+      artist: 'MOD CLUB',
+    });
+    navigator.mediaSession.setActionHandler('play', () => {
+      try { p.playVideo?.(); } catch {}
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      try { p.pauseVideo?.(); } catch {}
+    });
+    navigator.mediaSession.setActionHandler('stop', null);
+    navigator.mediaSession.setActionHandler('seekbackward', (d) => {
+      try { p.seekTo((p.getCurrentTime?.() || 0) - (d.seekOffset || 10), true); } catch {}
+    });
+    navigator.mediaSession.setActionHandler('seekforward', (d) => {
+      try { p.seekTo((p.getCurrentTime?.() || 0) + (d.seekOffset || 10), true); } catch {}
+    });
+  } catch {}
+}
+
 export default function VideoPlayer({
   streamUrl, providerType, isHost, roomState,
-  onStateChange, onSeek, onUrlChange
+  onStateChange, onSeek, onUrlChange, onResync, movieTitle
 }) {
   const mountRef = useRef(null);
   const playerRef = useRef(null);
@@ -43,6 +66,7 @@ export default function VideoPlayer({
   const isHostRef = useRef(isHost);
   const onStateChangeRef = useRef(onStateChange);
   const onSeekRef = useRef(onSeek);
+  const onResyncRef = useRef(onResync);
 
   const [playerReady, setPlayerReady] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -56,13 +80,23 @@ export default function VideoPlayer({
   const sliderDraggingRef = useRef(false);
   const destroyedRef = useRef(false);
   const lastIsPlayingRef = useRef(null);
+  const hiddenAtRef = useRef(null);
+  const hiddenPosRef = useRef(null);
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   useEffect(() => { onStateChangeRef.current = onStateChange; }, [onStateChange]);
   useEffect(() => { onSeekRef.current = onSeek; }, [onSeek]);
+  useEffect(() => { onResyncRef.current = onResync; }, [onResync]);
 
   const videoId = providerType === 'youtube' ? getVideoId(streamUrl) : '';
+
+  const applyHDQuality = useCallback(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    try { p.setPlaybackQuality('hd1080'); } catch {}
+    try { p.setPlaybackQualityRange?.('hd720', 'hd1080'); } catch {}
+  }, []);
 
   useEffect(() => {
     if (!videoId || providerType !== 'youtube') return;
@@ -109,12 +143,12 @@ export default function VideoPlayer({
             const dur = p.getDuration?.() || 0;
             if (dur > 0) setDuration(dur);
             setSeekPos(syncTime);
-            try { p.setPlaybackQuality('hd1080'); } catch {}
-            try { p.setPlaybackQualityRange?.('hd720', 'hd1080'); } catch {}
+            applyHDQuality();
             p.seekTo(syncTime, true);
             if (state?.isPlaying) p.playVideo();
             else p.pauseVideo();
             lastIsPlayingRef.current = state?.isPlaying;
+            setupMediaSession(p, movieTitle);
             setPlayerReady(true);
           },
           onStateChange(e) {
@@ -133,21 +167,20 @@ export default function VideoPlayer({
               }
               return;
             }
-
             if (!isHostRef.current) return;
             const t = p.getCurrentTime?.() || 0;
             if (e.data === S.PLAYING) {
               lastIsPlayingRef.current = true;
               onStateChangeRef.current?.({ isPlaying: true, currentTimeSeconds: t });
+              try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; } catch {}
             } else if (e.data === S.PAUSED) {
               lastIsPlayingRef.current = false;
               onStateChangeRef.current?.({ isPlaying: false, currentTimeSeconds: t });
+              try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch {}
             }
           },
           onPlaybackQualityChange() {
-            const p = playerRef.current;
-            if (!p || destroyedRef.current) return;
-            try { p.setPlaybackQuality('hd1080'); } catch {}
+            if (!destroyedRef.current && !document.hidden) applyHDQuality();
           },
         },
       });
@@ -173,12 +206,12 @@ export default function VideoPlayer({
       const t = p.getCurrentTime?.() || 0;
       const dur = p.getDuration?.() || 0;
       if (dur > 0) setDuration(dur);
-      if (!sliderDraggingRef.current) setSeekPos(t);
+      if (!sliderDraggingRef.current && !document.hidden) setSeekPos(t);
       if (isHostRef.current) {
         onStateChangeRef.current?.({ currentTimeSeconds: t });
       } else {
         const state = roomStateRef.current;
-        if (!state) return;
+        if (!state || document.hidden) return;
         const drift = Math.abs(t - (state.currentTimeSeconds || 0));
         if (drift > 8) p.seekTo(state.currentTimeSeconds, true);
       }
@@ -209,6 +242,46 @@ export default function VideoPlayer({
     if (roomState.isPlaying) p.playVideo?.();
     lastIsPlayingRef.current = roomState.isPlaying;
   }, [roomState?._seekedAt, playerReady, isHost]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      const p = playerRef.current;
+      if (!p || destroyedRef.current) return;
+
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+        hiddenPosRef.current = p.getCurrentTime?.() || 0;
+        try { p.setPlaybackQuality('small'); } catch {}
+      } else {
+        applyHDQuality();
+        if (hiddenAtRef.current !== null) {
+          const elapsed = (Date.now() - hiddenAtRef.current) / 1000;
+          const state = roomStateRef.current;
+          const wasPlaying = state?.isPlaying ?? lastIsPlayingRef.current;
+          if (wasPlaying && elapsed > 2) {
+            const expectedPos = (hiddenPosRef.current || 0) + elapsed;
+            const cur = p.getCurrentTime?.() || 0;
+            const drift = Math.abs(cur - expectedPos);
+            if (drift > 3) {
+              p.seekTo(expectedPos, true);
+              setSeekPos(expectedPos);
+            }
+          }
+          hiddenAtRef.current = null;
+          hiddenPosRef.current = null;
+          onResyncRef.current?.();
+        }
+        const state = roomStateRef.current;
+        if (state?.isPlaying && lastIsPlayingRef.current !== true) {
+          p.playVideo?.();
+          lastIsPlayingRef.current = true;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [applyHDQuality]);
 
   const enableSound = useCallback(() => {
     const p = playerRef.current;
@@ -266,6 +339,25 @@ export default function VideoPlayer({
 
   const isMuted = !soundEnabled || (playerRef.current?.getVolume?.() ?? volume) === 0;
 
+  const volumeControls = (compact = false) => (
+    <>
+      <button onClick={() => {
+        if (!soundEnabled) { enableSound(); return; }
+        const p = playerRef.current;
+        if (!p) return;
+        const cur = p.getVolume?.() || 0;
+        if (cur === 0) { p.setVolume(volume > 0 ? volume : 80); setVolume(v => v > 0 ? v : 80); }
+        else { p.setVolume(0); }
+      }} className={`text-white flex-shrink-0 ${compact ? 'text-base px-1' : 'text-base px-1'}`}>
+        {isMuted ? '🔇' : volume < 40 ? '🔉' : '🔊'}
+      </button>
+      <input type="range" min={0} max={100} value={soundEnabled ? volume : 0}
+        onChange={e => handleVolumeChange(Number(e.target.value))}
+        className={`cursor-pointer accent-yellow-500 ${compact ? 'w-20' : 'w-16'}`}
+        style={{ height: '4px' }} />
+    </>
+  );
+
   if (providerType === 'external') {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 gap-4"
@@ -311,11 +403,10 @@ export default function VideoPlayer({
         )}
 
         {videoId && !soundEnabled && playerReady && (
-          <div className="absolute bottom-3 right-3 z-10">
-            <button
-              onClick={enableSound}
+          <div className="absolute bottom-3 right-3 z-20">
+            <button onClick={enableSound}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all hover:scale-105 active:scale-95"
-              style={{ background: 'rgba(0,0,0,0.82)', border: '1px solid rgba(212,175,55,0.5)', backdropFilter: 'blur(6px)' }}>
+              style={{ background: 'rgba(0,0,0,0.85)', border: '1px solid rgba(212,175,55,0.55)', backdropFilter: 'blur(6px)' }}>
               <span className="text-base">🔊</span>
               <span className="text-xs font-bold text-white">Sesi Aç</span>
             </button>
@@ -323,25 +414,9 @@ export default function VideoPlayer({
         )}
 
         {!isHost && videoId && playerReady && soundEnabled && (
-          <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2">
-            <button onClick={() => {
-              if (!soundEnabled) { enableSound(); return; }
-              const p = playerRef.current;
-              if (!p) return;
-              const cur = p.getVolume?.() || 0;
-              if (cur === 0) { p.setVolume(volume > 0 ? volume : 80); setVolume(v => v > 0 ? v : 80); }
-              else { p.setVolume(0); }
-            }}
-              className="text-white text-lg px-1 rounded-lg transition-all hover:scale-110"
-              style={{ background: 'rgba(0,0,0,0.7)', padding: '4px 8px', backdropFilter: 'blur(4px)' }}>
-              {isMuted ? '🔇' : volume < 40 ? '🔉' : '🔊'}
-            </button>
-            <input
-              type="range" min={0} max={100} value={volume}
-              onChange={e => handleVolumeChange(Number(e.target.value))}
-              className="w-20 cursor-pointer accent-yellow-500"
-              style={{ height: '4px' }}
-            />
+          <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2"
+            style={{ background: 'rgba(0,0,0,0.7)', borderRadius: '10px', padding: '4px 8px', backdropFilter: 'blur(4px)' }}>
+            {volumeControls(true)}
           </div>
         )}
       </div>
@@ -354,11 +429,9 @@ export default function VideoPlayer({
               <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums w-10">{formatTime(seekPos)}</span>
               <input
                 type="range" min={0} max={Math.floor(duration)} value={Math.floor(seekPos)}
-                onMouseDown={handleSeekStart}
-                onTouchStart={handleSeekStart}
+                onMouseDown={handleSeekStart} onTouchStart={handleSeekStart}
                 onChange={handleSeekChange}
-                onMouseUp={handleSeekEnd}
-                onTouchEnd={handleSeekEnd}
+                onMouseUp={handleSeekEnd} onTouchEnd={handleSeekEnd}
                 className="flex-1 cursor-pointer accent-yellow-500"
                 style={{ height: '4px' }}
               />
@@ -370,23 +443,8 @@ export default function VideoPlayer({
               className="btn-gold px-3 py-1.5 text-xs flex items-center gap-1 disabled:opacity-40 flex-shrink-0">
               {roomState?.isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
             </button>
-
-            <button onClick={() => {
-              if (!soundEnabled) { enableSound(); return; }
-              const p = playerRef.current;
-              if (!p) return;
-              const cur = p.getVolume?.() || 0;
-              if (cur === 0) { p.setVolume(volume > 0 ? volume : 80); setVolume(v => v > 0 ? v : 80); }
-              else { p.setVolume(0); }
-            }} className="text-white text-base px-1 flex-shrink-0">
-              {isMuted ? '🔇' : volume < 40 ? '🔉' : '🔊'}
-            </button>
-            <input type="range" min={0} max={100} value={soundEnabled ? volume : 0}
-              onChange={e => handleVolumeChange(Number(e.target.value))}
-              className="w-16 cursor-pointer accent-yellow-500" />
-
+            {volumeControls(false)}
             <div className="flex-1" />
-
             {!showUrlInput
               ? <button onClick={() => setShowUrlInput(true)} className="btn-outline-gold text-xs px-2 py-1 flex-shrink-0">🔗 URL</button>
               : <div className="flex gap-1 flex-1 min-w-0">

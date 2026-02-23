@@ -357,6 +357,8 @@ export default function RoomPage() {
                   onStateChange={handleStateChange}
                   onSeek={handleSeek}
                   onUrlChange={handleUrlChange}
+                  onResync={() => socketRef.current?.emit('player_sync_request', { roomId: id })}
+                  movieTitle={room.movieTitle || room.title}
                 />
               )}
             </div>
