@@ -216,10 +216,10 @@
   ═══════════════════════════════════════ */
 
   .vip-room-card {
-    border: 1.5px solid rgba(168,85,247,0.6) !important;
-    background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(236,72,153,0.06), rgba(15,15,20,0.9)) !important;
-    box-shadow: 0 0 20px rgba(168,85,247,0.15), 0 0 40px rgba(168,85,247,0.05) !important;
-    animation: vipCardPulse 3s ease-in-out infinite;
+    border: 1.5px solid rgba(168,85,247,0.7) !important;
+    background: linear-gradient(135deg, rgba(168,85,247,0.13), rgba(236,72,153,0.07), rgba(15,15,20,0.95)) !important;
+    box-shadow: 0 0 24px rgba(168,85,247,0.22), 0 0 50px rgba(168,85,247,0.07) !important;
+    animation: vipCardPulse 2.5s ease-in-out infinite;
     position: relative;
     overflow: hidden;
   }
@@ -227,9 +227,35 @@
   .vip-room-card::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(168,85,247,0.08), transparent 60%);
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(168,85,247,0.13), transparent);
+    animation: roomCardShimmer 2.8s linear infinite;
     pointer-events: none;
+  }
+
+  .owned-vip-room-card {
+    border: 1.5px solid rgba(212,175,55,0.7) !important;
+    background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(168,85,247,0.07), rgba(15,15,20,0.95)) !important;
+    box-shadow: 0 0 24px rgba(212,175,55,0.22), 0 0 50px rgba(212,175,55,0.07) !important;
+    animation: ownedVipCardPulse 2.5s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .owned-vip-room-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.13), transparent);
+    animation: roomCardShimmer 2.8s linear infinite;
+    pointer-events: none;
+  }
+
+  .level-badge-rainbow {
+    animation: levelBadgeRainbow 3s linear infinite !important;
+    border-color: rgba(212,175,55,0.4) !important;
   }
 
   /* XP BAR */
@@ -333,6 +359,26 @@
 @keyframes vipCardPulse {
   0%, 100% { box-shadow: 0 0 20px rgba(168,85,247,0.15), 0 0 40px rgba(168,85,247,0.05); border-color: rgba(168,85,247,0.6); }
   50% { box-shadow: 0 0 30px rgba(168,85,247,0.35), 0 0 60px rgba(236,72,153,0.15); border-color: rgba(236,72,153,0.7); }
+}
+
+@keyframes ownedVipCardPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(212,175,55,0.2), 0 0 40px rgba(212,175,55,0.06); border-color: rgba(212,175,55,0.7); }
+  50% { box-shadow: 0 0 35px rgba(212,175,55,0.4), 0 0 65px rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.6); }
+}
+
+@keyframes roomCardShimmer {
+  0% { left: -100%; }
+  100% { left: 150%; }
+}
+
+@keyframes levelBadgeRainbow {
+  0%   { color: #ffd700; }
+  16%  { color: #ff6400; }
+  33%  { color: #ec4899; }
+  50%  { color: #a855f7; }
+  66%  { color: #3b82f6; }
+  83%  { color: #22c55e; }
+  100% { color: #ffd700; }
 }
 
 @keyframes levelUp {

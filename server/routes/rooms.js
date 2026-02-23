@@ -225,7 +225,7 @@ router.get('/:id/messages', async (req, res) => {
     const messages = await prisma.message.findMany({
       where: { roomId: Number(req.params.id), deletedAt: null },
       include: {
-        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true } },
+        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true } },
         replyTo: { include: { user: { select: { id: true, username: true } } } }
       },
       orderBy: { createdAt: 'asc' },

@@ -9,7 +9,7 @@ import HostControlsPanel from '../components/HostControlsPanel';
 import PasswordPrompt from '../components/PasswordPrompt';
 import UserAvatar from '../components/UserAvatar';
 import UserProfileCard from '../components/UserProfileCard';
-import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
+import BadgeList, { getUsernameClass, getRoleLabel, getUsernameStyle, LevelBadge } from '../components/RoleBadge';
 import { getBubbleForRole } from '../config/bubblePresets';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
@@ -30,6 +30,7 @@ function highlightMentions(text) {
 
 function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canModerate, onUserClick }) {
   const usernameClass = getUsernameClass(msg.user);
+  const usernameStyle = getUsernameStyle(msg.user);
   const isOwn = msg.user?.id === currentUserId;
   const isAdmin = msg.user?.role === 'admin';
   const isMod = msg.user?.role === 'moderator';
@@ -66,7 +67,8 @@ function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canMo
           )}
           <div className="flex items-center gap-1 flex-wrap mb-0.5">
             {isMod && !isAdmin && <span style={{ fontSize: 9, color: '#3b82f6' }}>🛡️ MOD</span>}
-            <span className={`text-xs font-bold cursor-pointer ${usernameClass}`} style={{ fontWeight: 800 }} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
+            <span className={`text-xs font-bold cursor-pointer ${usernameStyle ? '' : usernameClass}`} style={{ fontWeight: 800, ...(usernameStyle || {}) }} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
+            <LevelBadge level={msg.user?.level} />
             <BadgeList badges={msg.user?.badges} size={10} />
             <span className="text-gray-600 ml-auto" style={{ fontSize: 9 }}>{formatTime(msg.createdAt)}</span>
             {actions}
@@ -95,7 +97,8 @@ function ChatMessage({ msg, currentUserId, onDelete, onDeleteOwn, onReply, canMo
           </div>
         )}
         <div className="flex items-center gap-1 flex-wrap">
-          <span className={`text-xs font-semibold cursor-pointer ${usernameClass}`} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
+          <span className={`text-xs font-semibold cursor-pointer ${usernameStyle ? '' : usernameClass}`} style={{ ...(usernameStyle || {}) }} onClick={() => onUserClick && onUserClick(msg.user?.id)}>{msg.user?.username}</span>
+          <LevelBadge level={msg.user?.level} />
           <BadgeList badges={msg.user?.badges} size={10} />
           <span className="text-gray-600 ml-auto flex-shrink-0" style={{ fontSize: 9 }}>{formatTime(msg.createdAt)}</span>
         </div>

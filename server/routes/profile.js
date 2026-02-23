@@ -5,7 +5,8 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const PROFILE_SELECT = {
   id: true, username: true, role: true, vip: true,
-  avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true,
+  avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true,
+  chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true,
   level: true, xp: true, bio: true, createdAt: true
 };
 
@@ -14,7 +15,7 @@ router.get('/global-chat/history', async (req, res) => {
     const messages = await prisma.globalMessage.findMany({
       where: { deletedAt: null },
       include: {
-        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true } }
+        user: { select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true } }
       },
       orderBy: { createdAt: 'asc' },
       take: 100
@@ -337,6 +338,26 @@ router.post('/:id/set-bubble', requireAdmin, async (req, res) => {
   try {
     const { chatBubble } = req.body;
     const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: { chatBubble: chatBubble || '' }, select: PROFILE_SELECT });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/gift-username-color', requireAdmin, async (req, res) => {
+  try {
+    const { color, permanent, days } = req.body;
+    const updateData = { usernameColor: color || '' };
+    if (!color) {
+      updateData.usernameColorExpires = null;
+    } else if (permanent || !days) {
+      updateData.usernameColorExpires = null;
+    } else {
+      const expires = new Date();
+      expires.setDate(expires.getDate() + Number(days));
+      updateData.usernameColorExpires = expires;
+    }
+    const updated = await prisma.user.update({ where: { id: Number(req.params.id) }, data: updateData, select: PROFILE_SELECT });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

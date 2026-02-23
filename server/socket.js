@@ -75,6 +75,10 @@ function userPublicData(user) {
     frameType = '';
     frameColor = '';
   }
+  let usernameColor = user.usernameColor || '';
+  if (user.usernameColorExpires && new Date(user.usernameColorExpires) < new Date()) {
+    usernameColor = '';
+  }
   return {
     id: user.id,
     username: user.username,
@@ -85,6 +89,8 @@ function userPublicData(user) {
     frameType,
     frameColor,
     chatBubble: user.chatBubble || '',
+    usernameColor,
+    usernameColorExpires: user.usernameColorExpires || null,
     badges: user.badges || '',
     level: user.level || 1,
     xp: user.xp || 0
@@ -127,7 +133,7 @@ function setupSocket(io) {
       try {
         const dbUser = await prisma.user.findUnique({
           where: { id: socket.user.id },
-          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true, xp: true }
+          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true, xp: true }
         });
         if (dbUser) {
           socket.user = { ...socket.user, ...dbUser };
@@ -183,7 +189,7 @@ function setupSocket(io) {
           data: { userId: socket.user.id, content: trimmed },
           include: {
             user: {
-              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true }
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true }
             }
           }
         });
@@ -699,7 +705,7 @@ function setupSocket(io) {
           data: msgData,
           include: {
             user: {
-              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, badges: true, level: true }
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true }
             },
             replyTo: {
               include: {

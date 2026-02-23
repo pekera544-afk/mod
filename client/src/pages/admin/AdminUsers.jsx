@@ -34,6 +34,9 @@ function EditUserModal({ user, onClose, onSaved }) {
   const [levelVal, setLevelVal] = useState(user.level || 1);
   const [vipDays, setVipDays] = useState('');
   const [vipPerm, setVipPerm] = useState(false);
+  const [uColor, setUColor] = useState(user.usernameColor || '#d4af37');
+  const [uColorDays, setUColorDays] = useState('');
+  const [uColorPerm, setUColorPerm] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -80,6 +83,24 @@ function EditUserModal({ user, onClose, onSaved }) {
     } catch { setError('Çerçeve hediye hatası'); }
   };
 
+  const giftUsernameColor = async () => {
+    try {
+      await axios.post(`/api/profile/${user.id}/gift-username-color`, {
+        color: uColor,
+        permanent: uColorPerm,
+        days: uColorPerm ? 0 : Number(uColorDays)
+      });
+      showSuccess(`Kullanıcı adı rengi verildi!${uColorPerm ? ' (Süresiz)' : ` (${uColorDays} gün)`}`);
+    } catch { setError('Renk hediye hatası'); }
+  };
+
+  const removeUsernameColor = async () => {
+    try {
+      await axios.post(`/api/profile/${user.id}/gift-username-color`, { color: '' });
+      showSuccess('Kullanıcı adı rengi kaldırıldı');
+    } catch { setError('Renk kaldırma hatası'); }
+  };
+
   const saveBubble = async () => {
     try {
       await axios.post(`/api/profile/${user.id}/set-bubble`, { chatBubble: bubbleChoice });
@@ -122,6 +143,7 @@ function EditUserModal({ user, onClose, onSaved }) {
     { key: 'vip', label: 'VIP' },
     { key: 'frame', label: 'Çerçeve' },
     { key: 'bubble', label: 'Balon' },
+    { key: 'color', label: '🎨 Renk' },
   ];
 
   return (
@@ -434,6 +456,83 @@ function EditUserModal({ user, onClose, onSaved }) {
                   Bu kullanıcı Admin veya Mod değil.<br />Balon rengi yalnızca yetkili kullanıcılar için geçerlidir.
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === 'color' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)' }}>
+                <span className="text-2xl">🎨</span>
+                <div>
+                  <div className="text-sm font-bold" style={{ color: '#d4af37' }}>Kullanıcı Adı Rengi</div>
+                  <div className="text-xs text-gray-400">Sohbette kullanıcı adını renklendirir</div>
+                </div>
+              </div>
+
+              {user.usernameColor && (
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: user.usernameColor }} />
+                  <div className="flex-1">
+                    <span className="text-sm font-bold" style={{ color: user.usernameColor }}>{user.username}</span>
+                    {user.usernameColorExpires && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Bitiş: {new Date(user.usernameColorExpires).toLocaleDateString('tr-TR')}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={removeUsernameColor}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    Kaldır
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <div className="text-xs text-gray-400 font-semibold mb-2">Renk Seç</div>
+                <div className="grid grid-cols-5 gap-1.5 mb-3">
+                  {GIFT_COLORS.map(gc => (
+                    <button key={gc.color} onClick={() => setUColor(gc.color)}
+                      title={gc.label}
+                      className="h-9 rounded-lg transition-all flex items-center justify-center"
+                      style={{
+                        background: `${gc.color}20`,
+                        border: uColor === gc.color ? `2px solid ${gc.color}` : `1px solid ${gc.color}40`,
+                        boxShadow: uColor === gc.color ? `0 0 10px ${gc.color}60` : 'none',
+                      }}>
+                      <span style={{ color: gc.color, fontSize: 16 }}>●</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <input type="color" value={uColor} onChange={e => setUColor(e.target.value)}
+                    className="w-10 h-8 rounded cursor-pointer" style={{ border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <span className="text-xs text-gray-400">Özel renk:</span>
+                  <span className="text-sm font-bold" style={{ color: uColor }}>{uColor}</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl text-center"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="text-base font-bold" style={{ color: uColor }}>@{user.username}</span>
+                <div className="text-xs text-gray-500 mt-1">Önizleme</div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input type="checkbox" id="uColorPerm" checked={uColorPerm} onChange={e => setUColorPerm(e.target.checked)} className="accent-yellow-500" />
+                <label htmlFor="uColorPerm" className="text-sm text-gray-300">Süresiz</label>
+              </div>
+              {!uColorPerm && (
+                <input type="number" min="1" value={uColorDays} onChange={e => setUColorDays(e.target.value)}
+                  placeholder="Kaç gün? (örn: 30)"
+                  className="w-full px-3 py-2.5 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)' }} />
+              )}
+              <button onClick={giftUsernameColor}
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-all"
+                style={{ background: `${uColor}20`, color: uColor, border: `1px solid ${uColor}60` }}>
+                🎨 Rengi Hediye Et
+              </button>
             </div>
           )}
         </div>

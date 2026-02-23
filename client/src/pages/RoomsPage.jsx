@@ -110,11 +110,12 @@ function RoomCard({ room, onJoinLocked }) {
   );
 }
 
-function MyRoomBanner({ room, onDelete }) {
+function MyRoomBanner({ room, onDelete, user }) {
   const navigate = useNavigate();
   const liveCount = room.liveCount || 0;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isVipOwner = user?.vip || user?.role === 'admin';
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -130,8 +131,8 @@ function MyRoomBanner({ room, onDelete }) {
   };
 
   return (
-    <div className="rounded-2xl p-4 mb-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))', border: '1.5px solid rgba(212,175,55,0.4)' }}>
+    <div className={`rounded-2xl p-4 mb-4 ${isVipOwner ? 'owned-vip-room-card' : ''}`}
+      style={!isVipOwner ? { background: 'linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))', border: '1.5px solid rgba(212,175,55,0.4)' } : {}}>
       <div className="absolute inset-0 opacity-5"
         style={{ background: 'radial-gradient(circle at 80% 50%, #d4af37, transparent 70%)' }} />
       <div className="relative">
@@ -254,7 +255,7 @@ export default function RoomsPage() {
         </div>
 
         {myRoom && (
-          <MyRoomBanner room={myRoom} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
+          <MyRoomBanner room={myRoom} user={user} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
         )}
 
         <input

@@ -1,7 +1,7 @@
-# YOKO AJANS - Cinema Community Platform
+# MOD CLUB - Cinema Community Platform
 
 ## Overview
-A production-ready 18+ cinema community platform with watch parties, live text chat, PWA support, multilingual (TR/EN), and a full Admin Panel. Built with Node.js + Express + PostgreSQL (Prisma) + React (Vite) + Tailwind CSS + Socket.io.
+A production-ready 18+ premium cinema community platform with user-created synchronized watch party rooms, live text chat, PWA support, multilingual (TR/EN), and a full Admin Panel. Built with Node.js + Express + PostgreSQL (Prisma) + React (Vite) + Tailwind CSS + Socket.io.
 
 ## Architecture
 - **Backend**: Express.js + Socket.io at `index.js`

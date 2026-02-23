@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import UserProfileCard from './UserProfileCard';
-import BadgeList, { getUsernameClass, getRoleLabel } from './RoleBadge';
+import BadgeList, { getUsernameClass, getRoleLabel, getUsernameStyle, LevelBadge } from './RoleBadge';
 import { getBubbleForRole } from '../config/bubblePresets';
 
 const EMOJI_LIST = ['😂', '❤️', '😍', '🔥', '👏', '😮', '😎', '🎬', '👑', '💎', '🎉', '😭'];
 
 function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
   const usernameClass = getUsernameClass(msg.user);
+  const usernameStyle = getUsernameStyle(msg.user);
   const roleInfo = getRoleLabel(msg.user);
   const isAdmin = msg.user?.role === 'admin';
   const isMod = msg.user?.role === 'moderator';
@@ -22,7 +23,6 @@ function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
           <UserAvatar user={msg.user} size={28} onClick={() => onUserClick && onUserClick(msg.user.id)} />
         </div>
         <div className="flex-1 min-w-0">
-          {/* Role label above username */}
           {isAdmin && (
             <div className="flex items-center gap-1 mb-0.5">
               <span className="text-xs font-black tracking-widest px-1.5 py-0.5 rounded"
@@ -36,12 +36,13 @@ function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
               <span className="text-xs font-bold" style={{ color: '#3b82f6', fontSize: 10 }}>🛡️ MOD</span>
             )}
             <span
-              className={`text-xs font-bold cursor-pointer ${usernameClass}`}
-              style={{ fontWeight: 800 }}
+              className={`text-xs font-bold cursor-pointer ${usernameStyle ? '' : usernameClass}`}
+              style={{ fontWeight: 800, ...(usernameStyle || {}) }}
               onClick={() => onUserClick && onUserClick(msg.user.id)}
             >
               {msg.user.username}
             </span>
+            <LevelBadge level={msg.user?.level} />
             <BadgeList badges={msg.user.badges} size={10} />
             <span className="text-gray-600 ml-auto flex-shrink-0" style={{ fontSize: 9 }}>
               {new Date(msg.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
@@ -54,7 +55,6 @@ function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
               >🗑</button>
             )}
           </div>
-          {/* Bubble message */}
           <div className="rounded-2xl rounded-tl-sm px-3 py-2 inline-block max-w-full"
             style={{
               background: bubble.bg,
@@ -82,11 +82,13 @@ function ChatMessageItem({ msg, onUserClick, canDelete, onDelete }) {
             <span style={{ fontSize: 11, color: roleInfo.color }}>{roleInfo.icon}</span>
           )}
           <span
-            className={`text-xs font-semibold cursor-pointer ${usernameClass}`}
+            className={`text-xs font-semibold cursor-pointer ${usernameStyle ? '' : usernameClass}`}
+            style={{ ...(usernameStyle || {}) }}
             onClick={() => onUserClick && onUserClick(msg.user.id)}
           >
             {msg.user.username}
           </span>
+          <LevelBadge level={msg.user?.level} />
           <BadgeList badges={msg.user.badges} size={11} />
           <span className="text-gray-600" style={{ fontSize: 10 }}>
             {new Date(msg.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
