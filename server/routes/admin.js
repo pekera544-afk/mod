@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { requireAdmin } = require('../middleware/auth');
+const { getIo } = require('../socketRef');
 
 async function logAction(adminId, action, target, detail = '') {
   try {
@@ -173,6 +174,8 @@ router.post('/announcements', async (req, res) => {
   try {
     const item = await prisma.announcement.create({ data: req.body });
     await logAction(req.user.id, 'CREATE_ANNOUNCEMENT', `Ann#${item.id}`, item.titleTR);
+    const io = getIo();
+    if (io) io.emit('new_announcement', { id: item.id, titleTR: item.titleTR, titleEN: item.titleEN });
     res.json(item);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -204,6 +207,8 @@ router.post('/events', async (req, res) => {
   try {
     const ev = await prisma.event.create({ data: { ...req.body, startTime: new Date(req.body.startTime) } });
     await logAction(req.user.id, 'CREATE_EVENT', `Event#${ev.id}`, ev.titleTR);
+    const io = getIo();
+    if (io) io.emit('new_event', { id: ev.id, titleTR: ev.titleTR, titleEN: ev.titleEN, startTime: ev.startTime });
     res.json(ev);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });

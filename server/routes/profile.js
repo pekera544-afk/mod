@@ -102,7 +102,7 @@ router.delete('/friends/:userId', requireAuth, async (req, res) => {
 
 router.put('/me', requireAuth, async (req, res) => {
   try {
-    const { avatarUrl, avatarType, bio } = req.body;
+    const { avatarUrl, avatarType, bio, username } = req.body;
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -116,10 +116,37 @@ router.put('/me', requireAuth, async (req, res) => {
       updateData.avatarUrl = avatarUrl;
       updateData.avatarType = isPrivileged ? (avatarType || 'image') : 'image';
     }
+    if (username !== undefined) {
+      const trimmed = String(username).trim().slice(0, 30);
+      if (trimmed.length < 3) return res.status(400).json({ error: 'Kullanıcı adı en az 3 karakter olmalı' });
+      if (!/^[a-zA-Z0-9_çğıöşüÇĞİÖŞÜ]+$/.test(trimmed)) return res.status(400).json({ error: 'Kullanıcı adı sadece harf, rakam ve _ içerebilir' });
+      const existing = await prisma.user.findFirst({ where: { username: trimmed, NOT: { id: req.user.id } } });
+      if (existing) return res.status(409).json({ error: 'Bu kullanıcı adı zaten kullanılıyor' });
+      updateData.username = trimmed;
+    }
     const updated = await prisma.user.update({ where: { id: req.user.id }, data: updateData, select: PROFILE_SELECT });
     res.json(updated);
   } catch (err) {
     console.error('profile update error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/me/password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Tüm alanlar gerekli' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Yeni şifre en az 6 karakter olmalı' });
+    const bcrypt = require('bcryptjs');
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: 'Mevcut şifre yanlış' });
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: req.user.id }, data: { passwordHash } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('password change error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

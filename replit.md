@@ -31,12 +31,12 @@ A production-ready 18+ cinema community platform with watch parties, live text c
 │       ├── admin.js      # /api/admin/* (protected, admin only)
 │       └── pwa.js        # GET /api/pwa/manifest
 ├── client/src/
-│   ├── App.jsx           # Routes: /, /rooms/:id, /profile/:id, /login, /register, /admin/*
+│   ├── App.jsx           # Routes: /, /rooms, /rooms/:id, /announcements, /leaderboard, /vip, /profile/:id, /login, /register, /admin/*
 │   ├── context/
 │   │   ├── AuthContext.jsx  # User auth state + updateUser()
 │   │   └── SettingsContext.jsx
 │   ├── components/
-│   │   ├── Layout.jsx       # Global socket + XP tracking + notifications
+│   │   ├── Layout.jsx       # Global socket + XP tracking + notifications + real-time toast (new room/announcement/event)
 │   │   ├── Navbar.jsx       # XP bar, notification bell, user avatar
 │   │   ├── Sidebar.jsx      # Hidden for guests; shows XP bar, badges, nav links for users
 │   │   ├── FloatingChat.jsx # Opens GlobalChatPanel
@@ -53,8 +53,12 @@ A production-ready 18+ cinema community platform with watch parties, live text c
 │   └── pages/
 │       ├── HomePage.jsx
 │       ├── LandingPage.jsx
-│       ├── ProfilePage.jsx  # User profile with bio, friends, DM chat
-│       ├── RoomPage.jsx     # Room page with role-colored chat, profile cards
+│       ├── ProfilePage.jsx       # User profile with bio, friends, DM chat
+│       ├── RoomPage.jsx          # Room page with role-colored chat, profile cards
+│       ├── RoomsPage.jsx         # /rooms — room browser with search, filter tabs
+│       ├── AnnouncementsPage.jsx # /announcements — pinned + regular announcements
+│       ├── LeaderboardPage.jsx   # /leaderboard — XP-ranked user list with podium
+│       ├── VipPage.jsx           # /vip — VIP perks and Telegram contact
 │       └── admin/
 │           ├── AdminUsers.jsx  # Badge/XP/Level/VIP/Frame management
 │           └── ...

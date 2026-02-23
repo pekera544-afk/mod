@@ -50,6 +50,7 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+require('./server/socketRef').setIo(io);
 require('./server/socket')(io);
 
 server.on('error', (err) => {

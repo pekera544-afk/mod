@@ -28,11 +28,12 @@ router.get('/events', async (req, res) => {
 
 router.get('/top-users', async (req, res) => {
   try {
+    const limit = req.query.all === '1' ? 50 : 10;
     const users = await prisma.user.findMany({
       where: { banned: false },
-      select: { id: true, username: true, role: true, vip: true, createdAt: true },
-      orderBy: [{ vip: 'desc' }, { createdAt: 'asc' }],
-      take: 10
+      select: { id: true, username: true, role: true, vip: true, xp: true, level: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, createdAt: true },
+      orderBy: [{ xp: 'desc' }, { level: 'desc' }],
+      take: limit
     });
     res.json(users);
   } catch (err) {
@@ -44,8 +45,8 @@ router.get('/leaderboard', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { banned: false },
-      select: { id: true, username: true, role: true, vip: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
+      select: { id: true, username: true, role: true, vip: true, xp: true, level: true, avatarUrl: true, avatarType: true, createdAt: true },
+      orderBy: [{ xp: 'desc' }, { level: 'desc' }],
       take: 3
     });
     res.json(users);

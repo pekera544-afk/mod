@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const socketModule = require('../socket');
+const { getIo } = require('../socketRef');
 
 const roomSelect = {
   id: true, title: true, description: true, movieTitle: true, posterUrl: true,
@@ -106,6 +107,18 @@ router.post('/', requireAuth, async (req, res) => {
     await prisma.roomState.create({
       data: { roomId: room.id, isPlaying: false, currentTimeSeconds: 0 }
     });
+
+    const io = getIo();
+    if (io) {
+      io.emit('new_room_opened', {
+        id: room.id,
+        title: room.title,
+        movieTitle: room.movieTitle,
+        providerType: room.providerType,
+        isLocked: room.isLocked,
+        ownerUsername: req.user.username
+      });
+    }
 
     res.status(201).json({ ...room, passwordHash: undefined });
   } catch (err) {

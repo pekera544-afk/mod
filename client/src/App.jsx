@@ -3,6 +3,10 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import RoomPage from './pages/RoomPage';
+import RoomsPage from './pages/RoomsPage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import VipPage from './pages/VipPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
@@ -28,7 +32,11 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
+        <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomPage />} />
+        <Route path="announcements" element={<AnnouncementsPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="vip" element={<VipPage />} />
         <Route path="profile/:id" element={<ProfilePage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="login" element={<LoginPage />} />
