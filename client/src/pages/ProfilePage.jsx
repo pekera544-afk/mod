@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOutletContext } from 'react-router-dom';
-import UserAvatar from '../components/UserAvatar';
+import UserAvatar, { FRAME_LIST } from '../components/UserAvatar';
 import XpBar from '../components/XpBar';
 import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
 
@@ -78,7 +78,37 @@ function MyProfileSettings({ profile, onUpdated }) {
   const [pwMsg, setPwMsg] = useState(null);
   const [savingPw, setSavingPw] = useState(false);
 
+  const [selectedFrame, setSelectedFrame] = useState(profile.frameType || '');
+  const [frameMsg, setFrameMsg] = useState(null);
+  const [savingFrame, setSavingFrame] = useState(false);
+
   const isPrivileged = profile.role === 'admin' || profile.role === 'moderator' || profile.vip;
+  const hasGrantedFrame = !!(profile.frameType);
+  const availableFrames = isPrivileged
+    ? FRAME_LIST
+    : hasGrantedFrame
+      ? FRAME_LIST.filter(f => f.value === '' || f.value === profile.frameType)
+      : FRAME_LIST.filter(f => f.value === '');
+
+  async function saveFrame() {
+    setSavingFrame(true);
+    setFrameMsg(null);
+    try {
+      const res = await fetch('/api/profile/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('yoko_token')}` },
+        body: JSON.stringify({ frameType: selectedFrame })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Hata');
+      setFrameMsg({ type: 'success', text: selectedFrame ? `✓ ${FRAME_LIST.find(f=>f.value===selectedFrame)?.label} çerçevesi takıldı` : '✓ Çerçeve çıkarıldı' });
+      onUpdated?.(data);
+    } catch (err) {
+      setFrameMsg({ type: 'error', text: err.message || 'Bir hata oluştu' });
+    } finally {
+      setSavingFrame(false);
+    }
+  }
 
   async function handleFileSelect(e) {
     const file = e.target.files?.[0];
@@ -180,6 +210,7 @@ function MyProfileSettings({ profile, onUpdated }) {
 
   const tabs = [
     { key: 'profile', label: '🖼️ Profil' },
+    { key: 'frame', label: '✨ Çerçeve' },
     { key: 'account', label: '👤 Hesap' },
     { key: 'password', label: '🔑 Şifre' },
   ];
@@ -281,6 +312,68 @@ function MyProfileSettings({ profile, onUpdated }) {
               className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
               style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.1))', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
               {saving ? 'Kaydediliyor...' : '💾 Profili Kaydet'}
+            </button>
+          </>
+        )}
+
+        {activeTab === 'frame' && (
+          <>
+            <div className="flex items-center gap-4 mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.1)' }}>
+              <UserAvatar user={{ ...profile, frameType: selectedFrame }} size={60} />
+              <div>
+                <div className="text-sm font-semibold text-white">{profile.username}</div>
+                <div className="text-xs mt-0.5" style={{ color: '#d4af37' }}>
+                  {selectedFrame ? (FRAME_LIST.find(f => f.value === selectedFrame)?.label || selectedFrame) : 'Çerçeve yok'}
+                </div>
+                <div className="text-xs text-gray-600 mt-0.5">Önizleme</div>
+              </div>
+            </div>
+
+            {availableFrames.length <= 1 && !isPrivileged && !hasGrantedFrame && (
+              <div className="text-center py-6 text-xs text-gray-500">
+                <div className="text-2xl mb-2">🔒</div>
+                Çerçeve kullanmak için VIP olmanız veya<br />bir çerçevenin admin tarafından verilmesi gerekiyor
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              {availableFrames.map(frame => (
+                <button
+                  key={frame.value}
+                  onClick={() => setSelectedFrame(frame.value)}
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all text-left"
+                  style={{
+                    background: selectedFrame === frame.value ? `${frame.color}18` : 'rgba(255,255,255,0.03)',
+                    border: `1.5px solid ${selectedFrame === frame.value ? frame.color : 'rgba(255,255,255,0.07)'}`,
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+                    <UserAvatar
+                      user={{ ...profile, frameType: frame.value }}
+                      size={32}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold truncate" style={{ color: selectedFrame === frame.value ? frame.color : '#d1d5db' }}>
+                      {frame.label}
+                    </div>
+                    {selectedFrame === frame.value && (
+                      <div className="text-xs mt-0.5" style={{ color: frame.color, opacity: 0.8 }}>● Seçili</div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <StatusMsg msg={frameMsg?.text} type={frameMsg?.type} />
+
+            <button
+              onClick={saveFrame}
+              disabled={savingFrame || selectedFrame === (profile.frameType || '')}
+              className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all mt-2"
+              style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.1))', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}
+            >
+              {savingFrame ? 'Kaydediliyor...' : selectedFrame ? '✨ Çerçeveyi Tak' : '○ Çerçeveyi Çıkar'}
             </button>
           </>
         )}

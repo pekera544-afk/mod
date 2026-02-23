@@ -1,6 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  safelist: [
+    'frame-gold',
+    'frame-fire',
+    'frame-rainbow',
+    'frame-galaxy',
+    'frame-ice',
+    'frame-rose',
+    'frame-crystal',
+    'frame-love',
+    'frame-angel',
+    'frame-neon',
+    'frame-diamond',
+    'frame-sakura',
+  ],
   theme: {
     extend: {
       colors: {

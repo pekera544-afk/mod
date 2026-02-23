@@ -114,7 +114,7 @@ router.delete('/friends/:userId', requireAuth, async (req, res) => {
 
 router.put('/me', requireAuth, async (req, res) => {
   try {
-    const { avatarUrl, avatarType, bio, username } = req.body;
+    const { avatarUrl, avatarType, bio, username, frameType } = req.body;
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -127,6 +127,16 @@ router.put('/me', requireAuth, async (req, res) => {
       }
       updateData.avatarUrl = avatarUrl;
       updateData.avatarType = isPrivileged ? (avatarType || 'image') : 'image';
+    }
+    if (frameType !== undefined) {
+      const validFrames = ['', 'gold', 'fire', 'rainbow', 'galaxy', 'ice', 'rose', 'crystal', 'love', 'angel', 'neon', 'diamond', 'sakura'];
+      if (validFrames.includes(frameType)) {
+        if (!frameType || isPrivileged || user.frameType) {
+          updateData.frameType = frameType;
+        } else {
+          return res.status(403).json({ error: 'Çerçeve kullanmak için VIP olmalı veya admin tarafından verilmiş olmalı' });
+        }
+      }
     }
     if (username !== undefined) {
       const trimmed = String(username).trim().slice(0, 30);
