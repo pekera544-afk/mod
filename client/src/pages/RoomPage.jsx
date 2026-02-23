@@ -7,29 +7,35 @@ import { useAuth } from '../context/AuthContext';
 import VideoPlayer from '../components/VideoPlayer';
 import HostControlsPanel from '../components/HostControlsPanel';
 import PasswordPrompt from '../components/PasswordPrompt';
+import UserAvatar from '../components/UserAvatar';
+import UserProfileCard from '../components/UserProfileCard';
+import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
-function ChatMessage({ msg, onDelete, canModerate }) {
-  const roleColors = { admin: '#d4af37', vip: '#a855f7', user: '#9ca3af' };
-  const color = roleColors[msg.user?.role] || '#9ca3af';
+function ChatMessage({ msg, onDelete, canModerate, onUserClick }) {
+  const usernameClass = getUsernameClass(msg.user);
+  const roleInfo = getRoleLabel(msg.user);
   return (
-    <div className="flex gap-2 group py-0.5">
-      <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-cinema-dark mt-0.5"
-        style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}>
-        {(msg.user?.username || 'U')[0].toUpperCase()}
+    <div className="flex gap-2 group py-1 px-1 rounded-lg hover:bg-white/3 fade-in-up">
+      <div className="flex-shrink-0 mt-0.5">
+        <UserAvatar user={msg.user} size={24} onClick={() => onUserClick && onUserClick(msg.user?.id)} />
       </div>
       <div className="flex-1 min-w-0">
-        <span className="text-xs font-semibold mr-1" style={{ color }}>
-          {msg.user?.username}
-          {msg.user?.vip && <span className="ml-0.5 text-purple-400">💎</span>}
-        </span>
-        <span className="text-xs text-gray-300 break-words">{msg.content}</span>
+        <div className="flex items-center gap-1 flex-wrap">
+          {roleInfo && <span style={{ fontSize: 10, color: roleInfo.color }}>{roleInfo.icon}</span>}
+          <span className={`text-xs font-semibold cursor-pointer ${usernameClass}`} onClick={() => onUserClick && onUserClick(msg.user?.id)}>
+            {msg.user?.username}
+          </span>
+          <BadgeList badges={msg.user?.badges} size={10} />
+          {canModerate && (
+            <button onClick={() => onDelete(msg.id)}
+              className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 ml-auto transition-opacity flex-shrink-0"
+              style={{ fontSize: 10 }}>✕</button>
+          )}
+        </div>
+        <span className="text-xs text-gray-300 break-words leading-relaxed">{msg.content}</span>
       </div>
-      {canModerate && (
-        <button onClick={() => onDelete(msg.id)}
-          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
-      )}
     </div>
   );
 }
@@ -58,6 +64,7 @@ export default function RoomPage() {
   const [spamCooldown, setSpamCooldown] = useState(0);
   const [hostDisconnected, setHostDisconnected] = useState(false);
   const [notification, setNotification] = useState('');
+  const [profileCardId, setProfileCardId] = useState(null);
 
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -380,7 +387,7 @@ export default function RoomPage() {
                     </div>
                   )}
                   {messages.map(msg => (
-                    <ChatMessage key={msg.id} msg={msg} onDelete={deleteMessage} canModerate={canModerate} />
+                    <ChatMessage key={msg.id} msg={msg} onDelete={deleteMessage} canModerate={canModerate} onUserClick={setProfileCardId} />
                   ))}
                   <div ref={chatEndRef} />
                 </div>
@@ -446,6 +453,14 @@ export default function RoomPage() {
           </div>
         </div>
       </div>
+
+      {profileCardId && (
+        <UserProfileCard
+          userId={profileCardId}
+          onClose={() => setProfileCardId(null)}
+          socket={socketRef.current}
+        />
+      )}
     </div>
   );
 }

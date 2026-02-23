@@ -20,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/settings', require('./server/routes/settings'));
 app.use('/api/auth', require('./server/routes/auth'));
 app.use('/api/rooms', require('./server/routes/rooms'));
+app.use('/api/profile', require('./server/routes/profile'));
 app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));
 app.use('/api/pwa', require('./server/routes/pwa'));
@@ -53,13 +54,11 @@ require('./server/socket')(io);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.log(`Port ${PORT} mesgul, 3 saniye sonra tekrar deneniyor...`);
-    setTimeout(() => {
-      server.close();
-      server.listen(PORT, '0.0.0.0');
-    }, 3000);
+    console.error(`Port ${PORT} kullanımda! Lütfen mevcut süreci kapatın.`);
+    process.exit(1);
   } else {
     console.error('Server error:', err);
+    process.exit(1);
   }
 });
 

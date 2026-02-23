@@ -8,6 +8,36 @@ const roomModerators = new Map();
 const roomBanned = new Map();
 const spamTracker = new Map();
 const userSockets = new Map();
+const globalChatParticipants = new Map();
+const dmSpamTracker = new Map();
+
+function getLiveParticipantCount(roomId) {
+  const map = roomParticipants.get(String(roomId));
+  return map ? map.size : 0;
+}
+
+function getAllLiveCounts() {
+  const result = {};
+  for (const [roomId, map] of roomParticipants.entries()) {
+    result[roomId] = map.size;
+  }
+  return result;
+}
+
+const XP_PER_MESSAGE = 5;
+const XP_TABLE = [0, 100, 250, 500, 900, 1400, 2100, 3000, 4200, 5700, 7500];
+
+function getLevelFromXp(xp) {
+  let level = 1;
+  for (let i = XP_TABLE.length - 1; i >= 0; i--) {
+    if (xp >= XP_TABLE[i]) { level = i + 1; break; }
+  }
+  return Math.min(level, 10);
+}
+
+function getXpForNextLevel(level) {
+  return XP_TABLE[Math.min(level, XP_TABLE.length - 1)] || XP_TABLE[XP_TABLE.length - 1];
+}
 
 function getSpamKey(roomId, userId) { return `${roomId}:${userId}`; }
 
@@ -29,6 +59,39 @@ function canControl(socket, key) {
 
 function isModOrOwner(socket, key) { return canControl(socket, key); }
 
+function userPublicData(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    vip: user.vip,
+    avatarUrl: user.avatarUrl || '',
+    avatarType: user.avatarType || 'image',
+    frameType: user.frameType || '',
+    badges: user.badges || '',
+    level: user.level || 1,
+    xp: user.xp || 0
+  };
+}
+
+async function addXp(userId, amount, io) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    const newXp = (user.xp || 0) + amount;
+    const newLevel = getLevelFromXp(newXp);
+    const leveledUp = newLevel > (user.level || 1);
+    await prisma.user.update({ where: { id: userId }, data: { xp: newXp, level: newLevel } });
+    const socketId = userSockets.get(userId);
+    if (socketId) {
+      io.to(socketId).emit('xp_update', { xp: newXp, level: newLevel, xpForNext: getXpForNextLevel(newLevel) });
+      if (leveledUp) {
+        io.to(socketId).emit('level_up', { level: newLevel });
+      }
+    }
+  } catch {}
+}
+
 function setupSocket(io) {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -41,10 +104,197 @@ function setupSocket(io) {
     next();
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     if (socket.user.id) {
       userSockets.set(socket.user.id, socket.id);
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: socket.user.id },
+          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true, xp: true }
+        });
+        if (dbUser) {
+          socket.user = { ...socket.user, ...dbUser };
+          socket.emit('xp_update', { xp: dbUser.xp, level: dbUser.level, xpForNext: getXpForNextLevel(dbUser.level) });
+          const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
+          const unreadDMs = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false, deletedAt: null } });
+          socket.emit('notification_counts', { friendRequests: pending, unreadDMs });
+        }
+      } catch {}
     }
+
+    socket.on('join_global_chat', () => {
+      socket.join('global_chat');
+      globalChatParticipants.set(socket.id, {
+        id: socket.user.id,
+        username: socket.user.username,
+        role: socket.user.role,
+        vip: socket.user.vip,
+        avatarUrl: socket.user.avatarUrl || '',
+        avatarType: socket.user.avatarType || 'image',
+        frameType: socket.user.frameType || '',
+        badges: socket.user.badges || '',
+        level: socket.user.level || 1
+      });
+      io.to('global_chat').emit('global_participants', Array.from(globalChatParticipants.values()).filter(p => p.id));
+    });
+
+    socket.on('leave_global_chat', () => {
+      socket.leave('global_chat');
+      globalChatParticipants.delete(socket.id);
+      io.to('global_chat').emit('global_participants', Array.from(globalChatParticipants.values()).filter(p => p.id));
+    });
+
+    socket.on('send_global_message', async ({ content }) => {
+      if (!content || !content.trim()) return;
+      if (!socket.user.id) {
+        socket.emit('error', { message: 'Mesaj göndermek için giriş yapmalısınız' });
+        return;
+      }
+      const trimmed = content.trim().slice(0, 500);
+      const spamKey = `global:${socket.user.id}`;
+      const lastTime = spamTracker.get(spamKey) || 0;
+      const now = Date.now();
+      const isPrivileged = socket.user.role === 'admin' || socket.user.role === 'moderator';
+      if (!isPrivileged && now - lastTime < 3000) {
+        const remaining = Math.ceil((3000 - (now - lastTime)) / 1000);
+        socket.emit('spam_blocked', { remaining });
+        return;
+      }
+      spamTracker.set(spamKey, now);
+      try {
+        const msg = await prisma.globalMessage.create({
+          data: { userId: socket.user.id, content: trimmed },
+          include: {
+            user: {
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true }
+            }
+          }
+        });
+        io.to('global_chat').emit('global_message', msg);
+        await addXp(socket.user.id, XP_PER_MESSAGE, io);
+      } catch (err) { console.error('Global message error:', err); }
+    });
+
+    socket.on('admin_delete_global_message', async ({ messageId }) => {
+      if (socket.user.role !== 'admin' && socket.user.role !== 'moderator') return;
+      try {
+        await prisma.globalMessage.update({ where: { id: Number(messageId) }, data: { deletedAt: new Date() } });
+        io.to('global_chat').emit('global_message_deleted', { messageId });
+      } catch {}
+    });
+
+    socket.on('admin_clear_global_chat', async () => {
+      if (socket.user.role !== 'admin') return;
+      try {
+        await prisma.globalMessage.updateMany({ where: { deletedAt: null }, data: { deletedAt: new Date() } });
+        io.to('global_chat').emit('global_chat_cleared');
+      } catch {}
+    });
+
+    socket.on('send_dm', async ({ toId, content }) => {
+      if (!socket.user.id || !toId || !content?.trim()) return;
+      const spamKey = `dm:${socket.user.id}`;
+      const now = Date.now();
+      const last = dmSpamTracker.get(spamKey) || 0;
+      if (now - last < 1000) return;
+      dmSpamTracker.set(spamKey, now);
+      try {
+        const areFriends = await prisma.friendship.findFirst({
+          where: {
+            OR: [
+              { userAId: socket.user.id, userBId: Number(toId) },
+              { userAId: Number(toId), userBId: socket.user.id }
+            ]
+          }
+        });
+        const isAdmin = socket.user.role === 'admin';
+        if (!areFriends && !isAdmin) {
+          socket.emit('error', { message: 'Sadece arkadaşlarınıza DM gönderebilirsiniz' });
+          return;
+        }
+        const msg = await prisma.directMessage.create({
+          data: { fromId: socket.user.id, toId: Number(toId), content: content.trim().slice(0, 1000) },
+          include: { from: { select: { id: true, username: true, avatarUrl: true, role: true, vip: true, badges: true, level: true } } }
+        });
+        socket.emit('dm_sent', msg);
+        const targetSocketId = userSockets.get(Number(toId));
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('new_dm', msg);
+        }
+      } catch (err) { console.error('DM error:', err); }
+    });
+
+    socket.on('mark_dm_read', async ({ fromId }) => {
+      if (!socket.user.id) return;
+      try {
+        await prisma.directMessage.updateMany({
+          where: { fromId: Number(fromId), toId: socket.user.id, read: false },
+          data: { read: true }
+        });
+        const unreadDMs = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false } });
+        socket.emit('notification_counts', {
+          friendRequests: await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } }),
+          unreadDMs
+        });
+      } catch {}
+    });
+
+    socket.on('friend_request', async ({ toId }) => {
+      if (!socket.user.id || !toId) return;
+      try {
+        const existing = await prisma.friendRequest.findFirst({
+          where: { OR: [{ fromId: socket.user.id, toId: Number(toId) }, { fromId: Number(toId), toId: socket.user.id }] }
+        });
+        if (existing) { socket.emit('error', { message: 'Zaten bir istek var' }); return; }
+        const alreadyFriends = await prisma.friendship.findFirst({
+          where: { OR: [{ userAId: socket.user.id, userBId: Number(toId) }, { userAId: Number(toId), userBId: socket.user.id }] }
+        });
+        if (alreadyFriends) { socket.emit('error', { message: 'Zaten arkadaşsınız' }); return; }
+        await prisma.friendRequest.create({ data: { fromId: socket.user.id, toId: Number(toId) } });
+        const targetSocketId = userSockets.get(Number(toId));
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('friend_request_received', {
+            from: { id: socket.user.id, username: socket.user.username, avatarUrl: socket.user.avatarUrl || '' }
+          });
+          const count = await prisma.friendRequest.count({ where: { toId: Number(toId), status: 'pending' } });
+          const dmCount = await prisma.directMessage.count({ where: { toId: Number(toId), read: false } });
+          io.to(targetSocketId).emit('notification_counts', { friendRequests: count, unreadDMs: dmCount });
+        }
+        socket.emit('friend_request_sent');
+      } catch (err) { console.error('Friend request error:', err); }
+    });
+
+    socket.on('accept_friend', async ({ fromId }) => {
+      if (!socket.user.id || !fromId) return;
+      try {
+        const req = await prisma.friendRequest.findFirst({ where: { fromId: Number(fromId), toId: socket.user.id, status: 'pending' } });
+        if (!req) return;
+        await prisma.friendRequest.update({ where: { id: req.id }, data: { status: 'accepted' } });
+        await prisma.friendship.upsert({
+          where: { userAId_userBId: { userAId: Math.min(socket.user.id, Number(fromId)), userBId: Math.max(socket.user.id, Number(fromId)) } },
+          update: {},
+          create: { userAId: Math.min(socket.user.id, Number(fromId)), userBId: Math.max(socket.user.id, Number(fromId)) }
+        });
+        const fromSocketId = userSockets.get(Number(fromId));
+        if (fromSocketId) {
+          io.to(fromSocketId).emit('friend_accepted', { by: { id: socket.user.id, username: socket.user.username } });
+        }
+        const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
+        const dmCount = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false } });
+        socket.emit('notification_counts', { friendRequests: pending, unreadDMs: dmCount });
+        socket.emit('friend_request_accepted', { userId: Number(fromId) });
+      } catch (err) { console.error('Accept friend error:', err); }
+    });
+
+    socket.on('reject_friend', async ({ fromId }) => {
+      if (!socket.user.id) return;
+      try {
+        await prisma.friendRequest.updateMany({ where: { fromId: Number(fromId), toId: socket.user.id }, data: { status: 'rejected' } });
+        const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
+        const dmCount = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false } });
+        socket.emit('notification_counts', { friendRequests: pending, unreadDMs: dmCount });
+      } catch {}
+    });
 
     socket.on('join_room', async (roomId) => {
       const key = String(roomId);
@@ -98,6 +348,11 @@ function setupSocket(io) {
           username: socket.user.username,
           role: socket.user.role,
           vip: socket.user.vip,
+          avatarUrl: socket.user.avatarUrl || '',
+          avatarType: socket.user.avatarType || 'image',
+          frameType: socket.user.frameType || '',
+          badges: socket.user.badges || '',
+          level: socket.user.level || 1,
           socketId: socket.id,
           isOwner: room.ownerId === socket.user.id,
           isModerator
@@ -357,9 +612,14 @@ function setupSocket(io) {
         }
         const message = await prisma.message.create({
           data: { roomId: Number(roomId), userId: socket.user.id, content: trimmed },
-          include: { user: { select: { id: true, username: true, role: true, vip: true } } }
+          include: {
+            user: {
+              select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, badges: true, level: true }
+            }
+          }
         });
         io.to(key).emit('new_message', message);
+        await addXp(socket.user.id, XP_PER_MESSAGE, io);
       } catch (err) { console.error('Message error:', err); }
     });
 
@@ -397,6 +657,8 @@ function setupSocket(io) {
       if (socket.user.id && userSockets.get(socket.user.id) === socket.id) {
         userSockets.delete(socket.user.id);
       }
+      globalChatParticipants.delete(socket.id);
+      io.to('global_chat').emit('global_participants', Array.from(globalChatParticipants.values()).filter(p => p.id));
       const rooms = Array.from(roomParticipants.keys());
       for (const roomId of rooms) {
         handleLeaveRoom(socket, roomId, io);
@@ -420,3 +682,5 @@ function handleLeaveRoom(socket, key, io) {
 }
 
 module.exports = setupSocket;
+module.exports.getLiveParticipantCount = getLiveParticipantCount;
+module.exports.getAllLiveCounts = getAllLiveCounts;

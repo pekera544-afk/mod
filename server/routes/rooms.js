@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const socketModule = require('../socket');
 
 const roomSelect = {
   id: true, title: true, description: true, movieTitle: true, posterUrl: true,
@@ -14,6 +15,15 @@ const roomSelect = {
   state: true
 };
 
+router.get('/counts', (req, res) => {
+  try {
+    const counts = socketModule.getAllLiveCounts ? socketModule.getAllLiveCounts() : {};
+    res.json(counts);
+  } catch {
+    res.json({});
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const rooms = await prisma.room.findMany({
@@ -21,7 +31,9 @@ router.get('/', async (req, res) => {
       select: roomSelect,
       orderBy: [{ isTrending: 'desc' }, { createdAt: 'desc' }]
     });
-    res.json(rooms);
+    const liveCounts = socketModule.getAllLiveCounts ? socketModule.getAllLiveCounts() : {};
+    const roomsWithCounts = rooms.map(r => ({ ...r, liveCount: liveCounts[String(r.id)] || 0 }));
+    res.json(roomsWithCounts);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -34,7 +46,9 @@ router.get('/my', requireAuth, async (req, res) => {
       where: { ownerId: req.user.id, deletedAt: null, isActive: true },
       select: roomSelect
     });
-    res.json(room);
+    if (!room) return res.json(null);
+    const liveCounts = socketModule.getAllLiveCounts ? socketModule.getAllLiveCounts() : {};
+    res.json({ ...room, liveCount: liveCounts[String(room.id)] || 0 });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

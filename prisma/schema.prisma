@@ -67,10 +67,25 @@ model User {
   passwordHash    String
   role            String           @default("user")
   vip             Boolean          @default(false)
+  vipExpiresAt    DateTime?
   banned          Boolean          @default(false)
   bannedUntil     DateTime?
+  avatarUrl       String           @default("")
+  avatarType      String           @default("image")
+  frameType       String           @default("")
+  badges          String           @default("")
+  xp              Int              @default(0)
+  level           Int              @default(1)
+  bio             String           @default("")
   createdAt       DateTime         @default(now())
   messages        Message[]
+  globalMessages  GlobalMessage[]
+  directSent      DirectMessage[]  @relation("DMSender")
+  directReceived  DirectMessage[]  @relation("DMReceiver")
+  friendsSent     FriendRequest[]  @relation("FriendRequester")
+  friendsReceived FriendRequest[]  @relation("FriendReceiver")
+  friendshipsA    Friendship[]     @relation("FriendshipUserA")
+  friendshipsB    Friendship[]     @relation("FriendshipUserB")
   auditLogs       AuditLog[]
   ownedRooms      Room[]           @relation("RoomOwner")
   roomModsGiven   RoomModerator[]  @relation("ModeratorAssigner")
@@ -152,6 +167,48 @@ model Message {
   deletedAt DateTime?
   room      Room      @relation(fields: [roomId], references: [id])
   user      User      @relation(fields: [userId], references: [id])
+}
+
+model GlobalMessage {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  content   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model FriendRequest {
+  id          Int      @id @default(autoincrement())
+  fromId      Int
+  toId        Int
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  from        User     @relation("FriendRequester", fields: [fromId], references: [id])
+  to          User     @relation("FriendReceiver", fields: [toId], references: [id])
+  @@unique([fromId, toId])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userAId   Int
+  userBId   Int
+  createdAt DateTime @default(now())
+  userA     User     @relation("FriendshipUserA", fields: [userAId], references: [id])
+  userB     User     @relation("FriendshipUserB", fields: [userBId], references: [id])
+  @@unique([userAId, userBId])
+}
+
+model DirectMessage {
+  id         Int      @id @default(autoincrement())
+  fromId     Int
+  toId       Int
+  content    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  deletedAt  DateTime?
+  from       User     @relation("DMSender", fields: [fromId], references: [id])
+  to         User     @relation("DMReceiver", fields: [toId], references: [id])
 }
 
 model Announcement {

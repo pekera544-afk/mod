@@ -5,16 +5,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import i18n from '../i18n';
 import CreateRoomModal from './CreateRoomModal';
+import UserAvatar from './UserAvatar';
+import NotificationsPanel from './NotificationsPanel';
 
-export default function Navbar({ onMenuClick }) {
+export default function Navbar({ onMenuClick, socket, notifCounts, xpInfo }) {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
 
   const lang = i18n.language;
   const siteTitle = settings ? settings.siteTitle : 'YOKO AJANS';
+  const totalNotifs = (notifCounts?.friendRequests || 0) + (notifCounts?.unreadDMs || 0);
 
   const toggleLang = () => {
     const newLang = lang === 'tr' ? 'en' : 'tr';
@@ -54,6 +58,15 @@ export default function Navbar({ onMenuClick }) {
 
             {user ? (
               <>
+                {xpInfo && (
+                  <div className="hidden sm:flex flex-col items-end" style={{ minWidth: 70 }}>
+                    <span className="text-xs font-bold" style={{ color: '#d4af37' }}>Lv.{xpInfo.level}</span>
+                    <div style={{ width: 60, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: 'linear-gradient(90deg,#d4af37,#a855f7)', width: `${xpInfo.progress}%`, borderRadius: 2, transition: 'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => setShowCreate(true)}
                   className="btn-gold text-xs px-3 py-1.5 flex items-center gap-1 font-bold"
@@ -62,21 +75,37 @@ export default function Navbar({ onMenuClick }) {
                   🎬 <span className="hidden sm:inline">Oda Oluştur</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold-DEFAULT to-gold-dark flex items-center justify-center text-cinema-dark font-bold text-sm cursor-pointer"
-                    title={user.username}>
-                    {user.username[0].toUpperCase()}
-                  </div>
-                  {user.role === 'admin' && (
-                    <Link to="/admin" className="hidden sm:block text-xs font-bold px-2 py-0.5 rounded"
-                      style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
-                      ADMIN
-                    </Link>
-                  )}
-                  <button onClick={logout} className="text-xs text-gray-400 hover:text-red-400 transition-colors">
-                    {t('auth.logout')}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotif(s => !s)}
+                    className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+                    aria-label="Bildirimler"
+                  >
+                    <svg width="20" height="20" fill="none" stroke="#9ca3af" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    {totalNotifs > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white flex items-center justify-center font-bold" style={{ background: '#ef4444', fontSize: 9 }}>
+                        {totalNotifs > 9 ? '9+' : totalNotifs}
+                      </span>
+                    )}
                   </button>
+                  {showNotif && (
+                    <NotificationsPanel socket={socket} counts={notifCounts} onClose={() => setShowNotif(false)} />
+                  )}
                 </div>
+
+                <div onClick={() => navigate('/')} className="cursor-pointer">
+                  <UserAvatar user={user} size={34} />
+                </div>
+
+                {user.role === 'admin' && (
+                  <Link to="/admin" className="hidden sm:block text-xs font-bold px-2 py-0.5 rounded"
+                    style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
+                    ADMIN
+                  </Link>
+                )}
               </>
             ) : (
               <Link to="/login" className="btn-gold text-sm px-3 py-1.5">

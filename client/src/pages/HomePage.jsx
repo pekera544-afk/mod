@@ -67,11 +67,90 @@ function QuickAccessCard({ icon, label, to, color = '#d4af37' }) {
   );
 }
 
+function MyRoomCard({ room, onDelete }) {
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      await axios.delete(`/api/rooms/${room.id}`);
+      onDelete?.();
+    } catch {}
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden relative"
+      style={{
+        background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))',
+        border: '1.5px solid rgba(212,175,55,0.5)',
+        boxShadow: '0 0 20px rgba(212,175,55,0.15)'
+      }}>
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
+        <span className="text-xs font-bold cinzel px-2 py-0.5 rounded-full"
+          style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
+          👑 Benim Odam
+        </span>
+        <div className="flex items-center gap-1 ml-auto">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+          <span className="text-xs text-green-400 font-bold">{room.liveCount || 0} izleyici</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 p-3 pt-1">
+        {room.posterUrl ? (
+          <img src={room.posterUrl} alt={room.title} className="w-14 h-10 object-cover rounded-xl flex-shrink-0" />
+        ) : (
+          <div className="w-14 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+            style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
+            {room.providerType === 'youtube' ? '▶️' : '🔗'}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-white font-bold text-sm truncate flex items-center gap-1.5">
+            {room.title}
+            {room.isLocked && <span className="text-xs">🔒</span>}
+            {room.isTrending && <span className="text-xs" style={{ color: '#ff6400' }}>🔥</span>}
+          </div>
+          {room.movieTitle && <div className="text-gray-400 text-xs truncate">{room.movieTitle}</div>}
+        </div>
+      </div>
+
+      <div className="flex gap-2 px-3 pb-3">
+        <button onClick={() => navigate(`/rooms/${room.id}`)}
+          className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
+          style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
+          🎬 Odama Git
+        </button>
+        {!confirmDelete ? (
+          <button onClick={() => setConfirmDelete(true)}
+            className="px-3 py-2 rounded-xl text-xs text-red-400 transition-all"
+            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            🗑️
+          </button>
+        ) : (
+          <div className="flex gap-1">
+            <button onClick={handleDelete}
+              className="px-2 py-2 rounded-xl text-xs text-red-400 font-bold"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              Kapat
+            </button>
+            <button onClick={() => setConfirmDelete(false)}
+              className="px-2 py-2 rounded-xl text-xs text-gray-400"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              İptal
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RoomRow({ room, onJoinLocked }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const fakeCount = Math.floor(Math.random() * 40) + 5;
   const isOwned = user && room.ownerId === user.id;
+  const liveCount = room.liveCount || 0;
 
   const handleClick = () => {
     if (room.isLocked) { onJoinLocked(room); return; }
@@ -82,31 +161,37 @@ function RoomRow({ room, onJoinLocked }) {
     <div onClick={handleClick}
       className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.12)' }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
-        {room.providerType === 'youtube' ? '▶️' : '🔗'}
-      </div>
+      {room.posterUrl ? (
+        <img src={room.posterUrl} alt={room.title} className="w-10 h-10 object-cover rounded-xl flex-shrink-0" />
+      ) : (
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
+          style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
+          {room.providerType === 'youtube' ? '▶️' : '🔗'}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-white font-bold text-sm truncate">{room.title}</span>
           {room.isLocked && <span className="text-xs">🔒</span>}
           {isOwned && <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-            style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37' }}>Sahibi</span>}
+            style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37' }}>👑</span>}
           {room.isTrending && <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-            style={{ background: 'rgba(255,100,0,0.2)', color: '#ff6400' }}>🔥 Trend</span>}
+            style={{ background: 'rgba(255,100,0,0.2)', color: '#ff6400' }}>🔥</span>}
         </div>
         {room.movieTitle && <div className="text-gray-500 text-xs truncate">{room.movieTitle}</div>}
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <span className="text-xs text-gray-400">👥 {fakeCount}</span>
-        <div className="flex -space-x-1">
-          {[...Array(Math.min(3, fakeCount))].map((_, i) => (
-            <div key={i} className="w-5 h-5 rounded-full border border-gray-800 flex items-center justify-center text-xs"
-              style={{ background: `hsl(${i * 60 + 200}, 50%, 40%)` }}>
-              {String.fromCharCode(65 + i)}
-            </div>
-          ))}
-        </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {liveCount > 0 ? (
+          <>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+            <span className="text-xs text-green-400 font-semibold">{liveCount}</span>
+          </>
+        ) : (
+          <>
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-600"></span>
+            <span className="text-xs text-gray-500">0</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -133,6 +218,7 @@ export default function HomePage() {
   const { settings } = useSettings();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
+  const [myRoom, setMyRoom] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [topUsers, setTopUsers] = useState([]);
   const [lockedRoom, setLockedRoom] = useState(null);
@@ -140,8 +226,17 @@ export default function HomePage() {
   const [totalMembers, setTotalMembers] = useState(0);
   const [vipCount, setVipCount] = useState(0);
 
-  useEffect(() => {
+  const fetchRooms = () => {
     axios.get('/api/rooms').then(r => setRooms(r.data.filter(rm => rm.isActive && !rm.deletedAt))).catch(() => {});
+  };
+
+  const fetchMyRoom = () => {
+    if (!user) return;
+    axios.get('/api/rooms/my').then(r => setMyRoom(r.data)).catch(() => setMyRoom(null));
+  };
+
+  useEffect(() => {
+    fetchRooms();
     axios.get('/api/announcements').then(r => setAnnouncements(r.data.slice(0, 3))).catch(() => {});
     axios.get('/api/top-users').then(r => {
       setTopUsers(r.data.slice(0, 3));
@@ -149,6 +244,10 @@ export default function HomePage() {
       setVipCount(r.data.filter(u => u.vip).length || 0);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchMyRoom();
+  }, [user]);
 
   const handleJoinLocked = (room) => {
     if (!user) { navigate('/login'); return; }
@@ -160,8 +259,10 @@ export default function HomePage() {
     setLockedRoom(null);
   };
 
-  const onlineCount = Math.floor(Math.random() * 50) + 60;
+  const totalOnline = rooms.reduce((sum, r) => sum + (r.liveCount || 0), 0);
   const activeRoomCount = rooms.length;
+
+  const otherRooms = myRoom ? rooms.filter(r => r.id !== myRoom.id) : rooms;
 
   if (!user) {
     return <LandingPage settings={settings} rooms={rooms} />;
@@ -171,7 +272,6 @@ export default function HomePage() {
     <div className="min-h-screen pb-24" style={{ background: '#0a0a0f' }}>
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
 
-        {/* HERO BANNER */}
         <div className="relative rounded-3xl overflow-hidden p-4 pb-5"
           style={{
             background: 'linear-gradient(135deg, #1a0a2e 0%, #2a0a1e 40%, #1e0a0a 70%, #0f0520 100%)',
@@ -238,15 +338,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* STATS ROW */}
         <div className="flex gap-2">
           <StatCard icon="👥" value={(totalMembers || 3570).toLocaleString()} label="Toplam Üye" />
-          <StatCard icon="🟢" value={onlineCount} label="Online" color="#22c55e" />
+          <StatCard icon="🟢" value={totalOnline || 0} label="Online" color="#22c55e" />
           <StatCard icon="💎" value={vipCount || 124} label="VIP Üye" color="#c084fc" />
           <StatCard icon="🎬" value={activeRoomCount} label="Aktif Oda" />
         </div>
 
-        {/* FEATURED MEMBERS */}
         {topUsers.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -264,7 +362,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* QUICK ACCESS */}
         <div>
           <h2 className="font-bold text-white text-sm mb-2 flex items-center gap-2">
             <span style={{ color: '#d4af37' }}>⚡</span> Hızlı Erişim
@@ -278,33 +375,62 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* ACTIVE ROOMS */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-bold text-white text-sm flex items-center gap-2">
               <span style={{ color: '#d4af37' }}>🎭</span> Aktif Odalar
             </h2>
-            <button onClick={() => setShowCreate(true)}
-              className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
-              style={{
-                background: 'rgba(155,89,182,0.2)',
-                color: '#c084fc',
-                border: '1px solid rgba(155,89,182,0.4)',
-                boxShadow: '0 0 10px rgba(155,89,182,0.2)',
-              }}>
-              🎬 Oda Kur ×
-            </button>
-          </div>
-          <div className="space-y-2">
-            {rooms.length === 0 ? (
-              <div className="text-center py-8 text-gray-600 text-sm">Henüz aktif oda yok</div>
+            {!myRoom ? (
+              <button onClick={() => setShowCreate(true)}
+                className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.1))',
+                  color: '#d4af37',
+                  border: '1px solid rgba(212,175,55,0.5)',
+                  boxShadow: '0 0 12px rgba(212,175,55,0.2)',
+                }}>
+                🎬 Oda Kur
+              </button>
             ) : (
-              rooms.map(r => <RoomRow key={r.id} room={r} onJoinLocked={handleJoinLocked} />)
+              <button onClick={() => navigate(`/rooms/${myRoom.id}`)}
+                className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1 font-bold transition-all"
+                style={{
+                  background: 'rgba(212,175,55,0.15)',
+                  color: '#d4af37',
+                  border: '1px solid rgba(212,175,55,0.3)',
+                }}>
+                👑 Odam
+              </button>
+            )}
+          </div>
+
+          {myRoom && (
+            <div className="mb-3">
+              <MyRoomCard room={myRoom} onDelete={() => { setMyRoom(null); fetchRooms(); }} />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {otherRooms.length === 0 && !myRoom ? (
+              <div className="text-center py-6 space-y-3">
+                <div className="text-gray-600 text-sm">Henüz aktif oda yok</div>
+                <button onClick={() => setShowCreate(true)}
+                  className="text-sm px-6 py-2.5 rounded-xl font-bold transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.08))',
+                    color: '#d4af37',
+                    border: '1px solid rgba(212,175,55,0.4)',
+                    boxShadow: '0 0 20px rgba(212,175,55,0.15)',
+                  }}>
+                  🎬 İlk Odayı Sen Kur
+                </button>
+              </div>
+            ) : (
+              otherRooms.map(r => <RoomRow key={r.id} room={r} onJoinLocked={handleJoinLocked} />)
             )}
           </div>
         </div>
 
-        {/* ANNOUNCEMENTS */}
         {announcements.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -323,18 +449,20 @@ export default function HomePage() {
       {showCreate && (
         <CreateRoomModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
+          onCreated={(room) => {
             setShowCreate(false);
-            axios.get('/api/rooms').then(r => setRooms(r.data.filter(rm => rm.isActive && !rm.deletedAt))).catch(() => {});
+            setMyRoom(room);
+            fetchRooms();
           }}
         />
       )}
 
       {lockedRoom && (
         <PasswordPrompt
-          room={lockedRoom}
+          roomId={lockedRoom.id}
+          roomTitle={lockedRoom.title}
           onSuccess={handlePassword}
-          onCancel={() => setLockedRoom(null)}
+          onClose={() => setLockedRoom(null)}
         />
       )}
     </div>

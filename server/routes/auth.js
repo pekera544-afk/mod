@@ -4,6 +4,12 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { signToken, requireAuth } = require('../middleware/auth');
 
+const USER_SELECT = {
+  id: true, username: true, email: true, role: true, vip: true,
+  avatarUrl: true, avatarType: true, frameType: true, badges: true,
+  level: true, xp: true, bio: true, createdAt: true, vipExpiresAt: true
+};
+
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -18,7 +24,7 @@ router.post('/register', async (req, res) => {
       data: { username, email, passwordHash, role: 'user' }
     });
     const token = signToken({ id: user.id, username: user.username, role: user.role, vip: user.vip });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, vip: user.vip } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, vip: user.vip, level: 1, xp: 0, avatarUrl: '', avatarType: 'image', frameType: '', badges: '' } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -36,7 +42,7 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = signToken({ id: user.id, username: user.username, role: user.role, vip: user.vip });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, vip: user.vip } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, vip: user.vip, level: user.level, xp: user.xp, avatarUrl: user.avatarUrl, avatarType: user.avatarType, frameType: user.frameType, badges: user.badges } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -45,10 +51,12 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { id: true, username: true, email: true, role: true, vip: true, createdAt: true }
-    });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: USER_SELECT });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.vipExpiresAt && new Date(user.vipExpiresAt) < new Date()) {
+      await prisma.user.update({ where: { id: user.id }, data: { vip: false, vipExpiresAt: null } });
+      user.vip = false;
+    }
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
