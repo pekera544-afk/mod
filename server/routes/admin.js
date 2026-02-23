@@ -76,14 +76,35 @@ router.get('/users', async (req, res) => {
 
 router.put('/users/:id', async (req, res) => {
   try {
-    const { role, vip, banned, bannedUntil } = req.body;
+    const { role, vip, banned, bannedUntil, username, email, password } = req.body;
+
+    const updateData = {};
+    if (role !== undefined) updateData.role = role;
+    if (vip !== undefined) updateData.vip = vip;
+    if (banned !== undefined) updateData.banned = banned;
+    if (bannedUntil !== undefined) updateData.bannedUntil = bannedUntil ? new Date(bannedUntil) : null;
+    if (username && username.trim()) {
+      const existing = await prisma.user.findFirst({ where: { username: username.trim(), NOT: { id: Number(req.params.id) } } });
+      if (existing) return res.status(409).json({ error: 'Bu kullanıcı adı zaten kullanılıyor' });
+      updateData.username = username.trim();
+    }
+    if (email && email.trim()) {
+      const existing = await prisma.user.findFirst({ where: { email: email.trim(), NOT: { id: Number(req.params.id) } } });
+      if (existing) return res.status(409).json({ error: 'Bu e-posta zaten kullanılıyor' });
+      updateData.email = email.trim();
+    }
+    if (password && password.length >= 6) {
+      updateData.passwordHash = await bcrypt.hash(password, 12);
+    }
+
     const user = await prisma.user.update({
       where: { id: Number(req.params.id) },
-      data: { role, vip, banned, bannedUntil: bannedUntil ? new Date(bannedUntil) : null }
+      data: updateData,
+      select: { id: true, username: true, email: true, role: true, vip: true, banned: true, bannedUntil: true, createdAt: true }
     });
-    await logAction(req.user.id, 'UPDATE_USER', `User#${req.params.id}`, JSON.stringify({ role, vip, banned }));
+    await logAction(req.user.id, 'UPDATE_USER', `User#${req.params.id}`, JSON.stringify({ role, vip, banned, username: updateData.username, email: updateData.email, passwordChanged: !!password }));
     res.json(user);
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.delete('/users/:id', async (req, res) => {
