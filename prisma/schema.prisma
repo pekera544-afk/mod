@@ -32,6 +32,13 @@ model Settings {
   menuAdminEN    String   @default("Management")
   menuSettingsTR String   @default("Ayarlar")
   menuSettingsEN String   @default("Settings")
+  whatsappUrl    String   @default("")
+  telegramUrl    String   @default("")
+  supportUrl     String   @default("/")
+  showWhatsapp   Boolean  @default(true)
+  showTelegram   Boolean  @default(true)
+  showSupport    Boolean  @default(true)
+  wolfImageUrl   String   @default("")
   updatedAt      DateTime @updatedAt
 }
 

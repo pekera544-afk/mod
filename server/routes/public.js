@@ -26,6 +26,20 @@ router.get('/events', async (req, res) => {
   }
 });
 
+router.get('/top-users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { banned: false },
+      select: { id: true, username: true, role: true, vip: true, createdAt: true },
+      orderBy: [{ vip: 'desc' }, { createdAt: 'asc' }],
+      take: 10
+    });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/leaderboard', async (req, res) => {
   try {
     const users = await prisma.user.findMany({

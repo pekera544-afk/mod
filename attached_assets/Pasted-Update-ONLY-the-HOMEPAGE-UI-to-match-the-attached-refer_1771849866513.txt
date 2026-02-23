@@ -1,0 +1,127 @@
+Update ONLY the HOMEPAGE UI to match the attached reference screenshot’s layout, spacing, component hierarchy, and premium neon-glow style. The backend and features are already implemented; do NOT change business logic. Only refactor/replace homepage UI components and styling to visually match the reference.
+
+GOAL
+- Make the homepage look extremely close to the reference screenshot:
+  - Dark luxury theme
+  - Matte gold primary accents
+  - Purple neon glow highlights
+  - Glassmorphism cards
+  - Rounded corners
+  - Subtle particles / cosmic background feel
+  - Strong hero banner with wolf emblem
+  - Stats cards row
+  - “Featured members” cards (top 3)
+  - “Quick Access” icon cards grid
+  - “Active Rooms” list with badges, avatars, counts
+  - Announcements section at bottom
+- Keep it responsive: mobile first, but also works on tablet/desktop.
+- Keep the existing navigation structure and routes; only update the homepage visuals.
+
+TECH/UI REQUIREMENTS
+- Use React + Tailwind CSS (or the project’s existing UI stack).
+- Use consistent spacing and sizes like the screenshot: large hero banner, medium stat cards, big featured member cards.
+- Use a consistent glow system:
+  - gold glow for primary CTA and borders
+  - purple glow for secondary emphasis and “VIP” feeling
+- Use glassmorphism:
+  - background blur + semi-transparent dark overlays for cards
+- Ensure text is crisp and readable.
+
+HOMEPAGE STRUCTURE (MUST MATCH)
+
+1) TOP APP BAR (sticky)
+- Left: hamburger menu icon
+- Center/left: brand “YOKO AJANS” with a wolf icon logo
+- Right side:
+  - VIP pill button (small)
+  - notification bell icons with red badges (two bells like screenshot)
+  - user avatar with name “REHA” and role “Admin”
+- Background: dark with subtle gradient, thin divider line.
+
+2) HERO BANNER (very prominent card)
+- Large rounded hero card with:
+  - Left side: title “YOKO AJANS” (large), subtitle “Sesin Gücü Bizde!” (script-like emphasis on “Bizde!”)
+  - Under title: small stat chips:
+    - “145 Aktif Yayıncı”
+    - “98,750 ₺ Bu Ayki Kazancı”
+    - right aligned: “Şu An 12 Oda Aktif”
+  - Right side: big circular wolf emblem image with purple wings/glow behind it
+- Add a soft neon border and glow around the hero card.
+- Background image/texture: cinematic/cosmic night vibe.
+
+3) STATS ROW (4 cards)
+Below hero:
+- 4 equal cards with icons and counts:
+  - “3570 Toplam Üye”
+  - “88 Online”
+  - “124 VIP Üye”
+  - “6 Aktif Oda”
+- Cards are glassy, with subtle glow and icons.
+
+4) FEATURED MEMBERS SECTION (“Ajansta Öne Çıkanlar”)
+- Header row:
+  - Title left: “Ajansta Öne Çıkanlar”
+  - Right: “Tümü” button (small rounded)
+- Three large member cards in a row (or horizontal scroll on mobile if needed):
+  - Card 1 (gold glow + crown): “FIRARİ” @firari (rank 1)
+  - Card 2 (purple glow + crown): “NAZO” @nazo (rank 2)
+  - Card 3 (gold/purple mix): “REHA” @admin (rank 3)
+- Each card has:
+  - circular avatar
+  - crown badge
+  - neon audio-wave-like background texture behind avatar
+  - strong colored border glow (gold for #1, purple for #2)
+- Typography and layout should match the reference: big name text, small handle.
+
+5) QUICK ACCESS SECTION (“Hızlı Erişim”)
+- Title: “Hızlı Erişim”
+- 5 small square/rect cards with icons and labels:
+  - “PK / Etkinlikler”
+  - “Sohbet”
+  - “Film & Sinema”
+  - “VIP”
+  - “Uygulamalar”
+- Each card has a neon icon and a subtle glow.
+- Use a grid that wraps nicely on mobile.
+
+6) ACTIVE ROOMS SECTION (“Aktif Odalar”)
+- Header row:
+  - Title: “Aktif Odalar”
+  - Right: “Oda Kur” button (small rounded) with a plus icon; button should glow purple/gold.
+- Room list items (stacked):
+  - Each room item is a long glass card with:
+    - left: small icon + room name
+    - center: participant count (e.g., 45, 32, 23) with user icon
+    - right: small circular participant avatars
+    - badges like “Trend” (pill with flame icon) where applicable
+- Example room names like screenshot:
+  - “Eğlence & Sohbet”
+  - “Radyo | Müzik | Muhabbet”
+  - “Sari Kizlarin Yeri”
+- Keep the floating chat button bottom-right: large gold circular button with chat icon and glow.
+
+7) ANNOUNCEMENTS SECTION (“Duyurular”)
+- Header:
+  - “Duyurular”
+  - right: “Tümünü Gör”
+- Announcement card with icon and title (like “Kazanç Dağıtımı Yapıldı!”)
+- Same glass + glow style, rounded corners.
+
+VISUAL DETAILS
+- Background: dark gradient + subtle particles, not plain black.
+- Borders: 1px subtle, plus outer glow.
+- Shadows: soft and premium; no harsh drop shadows.
+- Use consistent border radius (e.g., 18–24px).
+- Hover states for desktop: slightly brighter glow and slight lift.
+- Motion: subtle (optional) — gentle pulse on badges and CTA buttons, but do not overdo.
+
+DO NOT CHANGE
+- Do not remove existing routes, data fetching, socket logic, or auth.
+- Only update the homepage UI layer and styling.
+- Keep i18n keys if the project uses translations; for now Turkish text is fine as shown.
+
+DELIVERABLES
+- Update the homepage component(s) and related CSS/Tailwind classes.
+- If needed, add a small reusable GlowCard component.
+- Ensure mobile looks like the screenshot first, then adapt for larger screens.
+- Provide the final code changes and confirm the homepage now matches the reference layout closely.

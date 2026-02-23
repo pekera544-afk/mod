@@ -1,0 +1,69 @@
+Implement a PRE-LOGIN LANDING / LOGIN SCREEN UI that matches the attached reference screenshot in layout and style (premium dark cinematic theme with matte gold accents, subtle purple glow, glassmorphism cards). The rest of the system already exists; focus on this screen + admin-editable contact links.
+
+GOALS
+1) UI must visually match the reference:
+- Dark cinematic background with theater seating + spotlight + particles.
+- Top header with brand “Yoko Ajans” and two small buttons (Kayıt Ol / Giriş Yap).
+- Big centered hero text:
+  - “Birlikte İzle, Birlikte Muhabbet Et.”
+  - subtitle: “Canlı sinema odaları, etkinlikler ve ajans duyuruları. 18+ kulüp deneyimi.”
+- Two large CTA buttons under hero:
+  - “Hemen Kayıt Ol” (primary gold glow)
+  - “Giriş Yap” (secondary purple outline/glow)
+- A “Quick Contact” row with 3 glass cards:
+  1) WhatsApp ile Ulaş (24/7)
+  2) Telegram’a Katıl (Duyuru Kanalımız)
+  3) Destek / SSS (Merak Edilen Sorular)
+  Each card has an icon, short description, and a small “Aç” button.
+- “Canlı Sinema Odaları” preview section below with 3 small room teaser cards (locked icon), showing:
+  - room title
+  - movie name line
+  - “xx kişi içeride”
+  - lock badge if protected
+- Footer: small icons row + text links (KVKK / Kullanım Şartları / İletişim)
+
+2) ADMIN PANEL MUST CONTROL CONTACT LINKS (CRITICAL)
+- Admin can edit and save these fields:
+  - WhatsApp URL (e.g., https://wa.me/...)
+  - Telegram Channel URL (e.g., https://t.me/...)
+  - Support/FAQ URL (internal route like /support or external link)
+  - Optional: a toggle for showing/hiding each contact card (on/off)
+- These links must be stored in the database (not hard-coded).
+- Landing page must fetch contact settings from API and render buttons accordingly.
+- Changes must apply immediately after saving (no redeploy).
+
+3) ROUTING / BEHAVIOR
+- “Kayıt Ol” and “Hemen Kayıt Ol” -> navigate to /register (or existing register route)
+- “Giriş Yap” buttons -> navigate to /login (or open login modal if the project uses one)
+- WhatsApp/Telegram/Support “Aç” buttons open the configured links:
+  - external links open in a new tab
+  - internal links use client-side routing
+- Keep Turkish as default language on first load (if i18n exists), but keep the exact Turkish copy as in the reference.
+
+4) TECH REQUIREMENTS
+- Use the project’s current stack (React + Tailwind, etc.).
+- Create reusable components:
+  - GlowButton (gold/purple)
+  - GlassCard
+- Use CSS variables or Tailwind config to keep theme consistent with existing pages.
+- Ensure responsive behavior:
+  - On mobile: stacked layout like reference
+  - On tablet/desktop: keep proportions and spacing clean
+
+API / DATA MODEL (Minimum)
+- Add (or extend) a Settings/PwaSettings table with a “contactLinks” group:
+  - whatsappUrl: string
+  - telegramUrl: string
+  - supportUrl: string
+  - showWhatsapp: boolean
+  - showTelegram: boolean
+  - showSupport: boolean
+- Provide endpoints:
+  - GET /api/settings/public (returns public settings for landing page, including contact links)
+  - PUT /api/admin/settings (admin updates contact links and toggles)
+
+DELIVERABLES
+- A complete Landing/Login screen UI that matches the reference.
+- Admin panel form section “Contact Links” with inputs + save button.
+- Ensure no regressions to existing features.
+- Confirm the landing page uses DB-driven links and matches the cinematic gold/purple glass style.
