@@ -1,0 +1,88 @@
+{
+  "nav": {
+    "home": "Home",
+    "rooms": "Cinema Rooms",
+    "events": "Events",
+    "top": "Top Members",
+    "announcements": "Announcements",
+    "vip": "VIP",
+    "admin": "Management",
+    "settings": "Settings"
+  },
+  "hero": {
+    "tagline": "Watch Together, Feel Together.",
+    "stats": {
+      "rooms": "Active Cinema Rooms",
+      "streamers": "Active Streamers",
+      "online": "Online"
+    }
+  },
+  "rooms": {
+    "title": "Live Cinema Rooms",
+    "watching": "Now Watching",
+    "participants": "inside",
+    "chat": "Live Chat Active",
+    "join": "Join Room",
+    "trending": "Trending"
+  },
+  "featured": {
+    "title": "Tonight's Special Screening",
+    "starting": "Starting at",
+    "badge": "Exclusive badge for attendees",
+    "join": "Join Screening"
+  },
+  "announcements": {
+    "title": "Announcements"
+  },
+  "leaderboard": {
+    "title": "Top Members of the Month",
+    "admin": "Administrator",
+    "vip": "VIP Member",
+    "user": "Member"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "loginTitle": "Login",
+    "registerTitle": "Register",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "admin": {
+    "dashboard": "Admin Panel",
+    "settings": "Site Settings",
+    "pwa": "PWA Settings",
+    "users": "Users",
+    "rooms": "Rooms",
+    "announcements": "Announcements",
+    "events": "Events",
+    "auditLog": "Audit Log",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "publishUpdate": "Publish PWA Update",
+    "title": "Title",
+    "content": "Content",
+    "cancel": "Cancel"
+  },
+  "room": {
+    "sendMessage": "Send a message...",
+    "send": "Send",
+    "participants": "Participants",
+    "chat": "Chat",
+    "stream": "Stream",
+    "loginToChat": "Login to chat"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "noData": "No data found",
+    "back": "Back",
+    "close": "Close"
+  }
+}

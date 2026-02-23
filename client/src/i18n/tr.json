@@ -1,0 +1,88 @@
+{
+  "nav": {
+    "home": "Ana Sayfa",
+    "rooms": "Sinema Odaları",
+    "events": "Etkinlikler",
+    "top": "Ayın Elemanları",
+    "announcements": "Duyurular",
+    "vip": "VIP",
+    "admin": "Yönetim",
+    "settings": "Ayarlar"
+  },
+  "hero": {
+    "tagline": "Birlikte İzle, Birlikte Hisset.",
+    "stats": {
+      "rooms": "Aktif Sinema Odası",
+      "streamers": "Aktif Yayıncı",
+      "online": "Online"
+    }
+  },
+  "rooms": {
+    "title": "Canlı Sinema Odaları",
+    "watching": "İzlenen Film",
+    "participants": "kişi içeride",
+    "chat": "Canlı Chat Aktif",
+    "join": "Odaya Katıl",
+    "trending": "Trend"
+  },
+  "featured": {
+    "title": "Bu Gece Özel Gösterim",
+    "starting": "Başlıyor",
+    "badge": "Katılanlara özel rozet",
+    "join": "Gösterime Katıl"
+  },
+  "announcements": {
+    "title": "Duyurular"
+  },
+  "leaderboard": {
+    "title": "Ayın Elemanları",
+    "admin": "Yönetici",
+    "vip": "VIP Üye",
+    "user": "Üye"
+  },
+  "auth": {
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "logout": "Çıkış Yap",
+    "email": "E-posta",
+    "password": "Şifre",
+    "username": "Kullanıcı Adı",
+    "loginTitle": "Giriş Yap",
+    "registerTitle": "Kayıt Ol",
+    "noAccount": "Hesabın yok mu?",
+    "hasAccount": "Zaten hesabın var mı?"
+  },
+  "admin": {
+    "dashboard": "Yönetim Paneli",
+    "settings": "Site Ayarları",
+    "pwa": "PWA Ayarları",
+    "users": "Kullanıcılar",
+    "rooms": "Odalar",
+    "announcements": "Duyurular",
+    "events": "Etkinlikler",
+    "auditLog": "İşlem Geçmişi",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "add": "Ekle",
+    "publishUpdate": "PWA Güncellemesini Yayınla",
+    "title": "Başlık",
+    "content": "İçerik",
+    "cancel": "İptal"
+  },
+  "room": {
+    "sendMessage": "Mesaj gönder...",
+    "send": "Gönder",
+    "participants": "Katılımcılar",
+    "chat": "Sohbet",
+    "stream": "Yayın",
+    "loginToChat": "Sohbet etmek için giriş yapın"
+  },
+  "common": {
+    "loading": "Yükleniyor...",
+    "error": "Bir hata oluştu",
+    "noData": "Veri bulunamadı",
+    "back": "Geri",
+    "close": "Kapat"
+  }
+}

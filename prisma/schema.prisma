@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Settings {
+  id             Int      @id @default(autoincrement())
+  siteTitle      String   @default("YOKO AJANS")
+  taglineTR      String   @default("Birlikte İzle, Birlikte Hisset.")
+  taglineEN      String   @default("Watch Together, Feel Together.")
+  logoUrl        String   @default("")
+  primaryColor   String   @default("#d4af37")
+  bgImageUrl     String   @default("")
+  heroTitleTR    String   @default("YOKO AJANS")
+  heroTitleEN    String   @default("YOKO AJANS")
+  menuHomeTR     String   @default("Ana Sayfa")
+  menuHomeEN     String   @default("Home")
+  menuRoomsTR    String   @default("Sinema Odaları")
+  menuRoomsEN    String   @default("Cinema Rooms")
+  menuEventsTR   String   @default("Etkinlikler")
+  menuEventsEN   String   @default("Events")
+  menuTopTR      String   @default("Ayın Elemanları")
+  menuTopEN      String   @default("Top Members")
+  menuAnnouncTR  String   @default("Duyurular")
+  menuAnnouncEN  String   @default("Announcements")
+  menuVipTR      String   @default("VIP")
+  menuVipEN      String   @default("VIP")
+  menuAdminTR    String   @default("Yönetim")
+  menuAdminEN    String   @default("Management")
+  menuSettingsTR String   @default("Ayarlar")
+  menuSettingsEN String   @default("Settings")
+  updatedAt      DateTime @updatedAt
+}
+
+model PwaSettings {
+  id              Int      @id @default(autoincrement())
+  name            String   @default("YOKO AJANS")
+  shortName       String   @default("YOKO")
+  descriptionTR   String   @default("Birlikte İzle, Birlikte Hisset.")
+  descriptionEN   String   @default("Watch Together, Feel Together.")
+  themeColor      String   @default("#0f0f14")
+  backgroundColor String   @default("#0f0f14")
+  icon192Url      String   @default("/icons/icon-192.png")
+  icon512Url      String   @default("/icons/icon-512.png")
+  startUrl        String   @default("/")
+  scope           String   @default("/")
+  display         String   @default("standalone")
+  version         Int      @default(1)
+  enabled         Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String
+  role         String     @default("user")
+  vip          Boolean    @default(false)
+  banned       Boolean    @default(false)
+  bannedUntil  DateTime?
+  createdAt    DateTime   @default(now())
+  messages     Message[]
+  auditLogs    AuditLog[]
+}
+
+model Room {
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String    @default("")
+  movieTitle   String    @default("")
+  posterUrl    String    @default("")
+  streamUrl    String    @default("")
+  isTrending   Boolean   @default(false)
+  allowedRoles String    @default("user,vip,admin")
+  maxUsers     Int       @default(100)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  messages     Message[]
+}
+
+model Message {
+  id        Int       @id @default(autoincrement())
+  roomId    Int
+  userId    Int
+  content   String
+  reaction  String    @default("")
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  room      Room      @relation(fields: [roomId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  titleTR   String
+  titleEN   String
+  contentTR String
+  contentEN String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id            Int      @id @default(autoincrement())
+  titleTR       String
+  titleEN       String
+  descriptionTR String   @default("")
+  descriptionEN String   @default("")
+  startTime     DateTime
+  posterUrl     String   @default("")
+  badge         String   @default("")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  action    String
+  target    String
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id])
+}
