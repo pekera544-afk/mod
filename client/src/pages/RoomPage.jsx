@@ -1,34 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
+import VideoPlayer from '../components/VideoPlayer';
+import HostControlsPanel from '../components/HostControlsPanel';
+import PasswordPrompt from '../components/PasswordPrompt';
 
-const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎'];
+const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
-function ChatMessage({ msg, onDelete, isAdmin }) {
+function ChatMessage({ msg, onDelete, canModerate }) {
   const roleColors = { admin: '#d4af37', vip: '#a855f7', user: '#9ca3af' };
   const color = roleColors[msg.user?.role] || '#9ca3af';
 
   return (
-    <div className="flex gap-2 group py-1">
-      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-cinema-dark"
+    <div className="flex gap-2 group py-0.5">
+      <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-cinema-dark mt-0.5"
         style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}>
         {(msg.user?.username || 'U')[0].toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
         <span className="text-xs font-semibold mr-1" style={{ color }}>
           {msg.user?.username}
-          {msg.user?.vip && <span className="ml-1 text-purple-400">💎</span>}
+          {msg.user?.vip && <span className="ml-0.5 text-purple-400">💎</span>}
         </span>
         <span className="text-xs text-gray-300 break-words">{msg.content}</span>
       </div>
-      {isAdmin && (
-        <button
-          onClick={() => onDelete(msg.id)}
-          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity"
-        >
+      {canModerate && (
+        <button onClick={() => onDelete(msg.id)}
+          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity flex-shrink-0">
           ✕
         </button>
       )}
@@ -40,37 +41,100 @@ export default function RoomPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const { user, token } = useAuth();
+  const navigate = useNavigate();
+
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
   const [reactions, setReactions] = useState([]);
+  const [roomState, setRoomState] = useState({
+    isPlaying: false, currentTimeSeconds: 0, hostConnected: false,
+    chatEnabled: true, spamProtectionEnabled: true, spamCooldownSeconds: 3
+  });
+  const [isHost, setIsHost] = useState(false);
+  const [needPassword, setNeedPassword] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [spamCooldown, setSpamCooldown] = useState(0);
+  const [hostDisconnected, setHostDisconnected] = useState(false);
+
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
+  const spamTimerRef = useRef(null);
 
   useEffect(() => {
-    axios.get(`/api/rooms/${id}`).then(r => setRoom(r.data));
-    axios.get(`/api/rooms/${id}/messages`).then(r => setMessages(r.data));
-  }, [id]);
+    const fetchRoom = async () => {
+      try {
+        const res = await axios.get(`/api/rooms/${id}`);
+        setRoom(res.data);
+        if (res.data.isLocked) {
+          setNeedPassword(true);
+        } else {
+          setUnlocked(true);
+        }
+      } catch {
+        navigate('/');
+      }
+    };
+    fetchRoom();
+  }, [id, navigate]);
 
   useEffect(() => {
+    if (!unlocked) return;
+    axios.get(`/api/rooms/${id}/messages`).then(r => setMessages(r.data)).catch(() => {});
+  }, [id, unlocked]);
+
+  useEffect(() => {
+    if (!unlocked || !room) return;
+
     const socket = io({ auth: { token } });
     socketRef.current = socket;
 
     socket.emit('join_room', id);
 
-    socket.on('new_message', (msg) => {
-      setMessages(prev => [...prev, msg]);
+    if (user && room.ownerId === user.id) {
+      setTimeout(() => socket.emit('claim_host', id), 500);
+    }
+
+    socket.on('host_granted', () => {
+      setIsHost(true);
+      setHostDisconnected(false);
     });
 
-    socket.on('participants', (list) => {
-      setParticipants(list);
+    socket.on('room_state', (state) => {
+      setRoomState(prev => ({ ...prev, ...state }));
+      if (!state.hostConnected && room.ownerId && room.ownerId !== user?.id) {
+        setHostDisconnected(true);
+      } else if (state.hostConnected) {
+        setHostDisconnected(false);
+      }
     });
 
-    socket.on('message_deleted', ({ messageId }) => {
-      setMessages(prev => prev.filter(m => m.id !== messageId));
+    socket.on('host_changed', ({ hostConnected }) => {
+      if (!hostConnected && room.ownerId !== user?.id) {
+        setHostDisconnected(true);
+        setRoomState(prev => ({ ...prev, isPlaying: false, hostConnected: false }));
+      } else {
+        setHostDisconnected(false);
+        setRoomState(prev => ({ ...prev, hostConnected: true }));
+      }
     });
+
+    socket.on('room_settings_changed', (settings) => {
+      setRoomState(prev => ({ ...prev, ...settings }));
+    });
+
+    socket.on('url_changed', ({ streamUrl, providerType }) => {
+      setRoom(prev => prev ? { ...prev, streamUrl, providerType: providerType || prev.providerType } : prev);
+    });
+
+    socket.on('new_message', (msg) => setMessages(prev => [...prev, msg]));
+
+    socket.on('participants', (list) => setParticipants(list));
+
+    socket.on('message_deleted', ({ messageId }) =>
+      setMessages(prev => prev.filter(m => m.id !== messageId)));
 
     socket.on('new_reaction', (data) => {
       const rid = Date.now();
@@ -78,19 +142,58 @@ export default function RoomPage() {
       setTimeout(() => setReactions(prev => prev.filter(r => r.rid !== rid)), 3000);
     });
 
+    socket.on('spam_blocked', ({ remaining }) => {
+      setSpamCooldown(remaining);
+      if (spamTimerRef.current) clearInterval(spamTimerRef.current);
+      spamTimerRef.current = setInterval(() => {
+        setSpamCooldown(prev => {
+          if (prev <= 1) { clearInterval(spamTimerRef.current); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    });
+
+    socket.on('room_deleted', () => {
+      alert('Bu oda kapatıldı.');
+      navigate('/');
+    });
+
+    socket.on('disconnect', () => {});
+
+    socket.emit('player_sync_request', { roomId: id });
+
     return () => {
       socket.emit('leave_room', id);
       socket.disconnect();
     };
-  }, [id, token]);
+  }, [id, token, user, unlocked, room?.ownerId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleStateChange = useCallback((update) => {
+    if (!isHost) return;
+    setRoomState(prev => ({ ...prev, ...update }));
+    socketRef.current?.emit('room_state_update', { roomId: id, ...update });
+  }, [isHost, id]);
+
+  const handleUrlChange = useCallback((streamUrl) => {
+    if (!isHost) return;
+    const providerType = streamUrl.includes('youtube.com') || streamUrl.includes('youtu.be') ? 'youtube' : 'external';
+    socketRef.current?.emit('url_changed', { roomId: id, streamUrl, providerType });
+    setRoom(prev => prev ? { ...prev, streamUrl, providerType } : prev);
+  }, [isHost, id]);
+
+  const handleSettingsChange = useCallback((settings) => {
+    setRoomState(prev => ({ ...prev, ...settings }));
+  }, []);
+
   const sendMessage = (e) => {
     e.preventDefault();
     if (!newMsg.trim() || !user) return;
+    if (spamCooldown > 0) return;
+    if (!roomState.chatEnabled) return;
     socketRef.current?.emit('send_message', { roomId: id, content: newMsg });
     setNewMsg('');
   };
@@ -106,132 +209,195 @@ export default function RoomPage() {
   if (!room) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center gold-text cinzel">{t('common.loading')}</div>
+        <div className="text-center gold-text cinzel text-sm animate-pulse">Oda yükleniyor...</div>
       </div>
     );
   }
 
+  if (needPassword && !unlocked) {
+    return (
+      <PasswordPrompt
+        roomId={id}
+        roomTitle={room.title}
+        onSuccess={(unlockedRoom) => {
+          setRoom(unlockedRoom);
+          setNeedPassword(false);
+          setUnlocked(true);
+        }}
+        onClose={() => navigate('/')}
+      />
+    );
+  }
+
+  const canModerate = isHost || user?.role === 'admin';
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] max-w-screen-xl mx-auto">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gold-DEFAULT/10"
-        style={{ background: 'rgba(15,15,20,0.9)' }}>
-        <Link to="/" className="text-gray-400 hover:text-gold-DEFAULT transition-colors">
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gold-DEFAULT/10 flex-shrink-0"
+        style={{ background: 'rgba(15,15,20,0.98)' }}>
+        <Link to="/" className="text-gray-400 hover:text-gold-DEFAULT transition-colors flex-shrink-0">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </Link>
-        <div>
-          <h1 className="font-bold text-white text-sm">🎥 {room.title}</h1>
-          {room.movieTitle && <p className="text-xs text-gray-400">{room.movieTitle}</p>}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="font-bold text-white text-sm truncate">🎥 {room.title}</h1>
+            {room.isLocked && <span className="text-xs text-gray-400">🔒</span>}
+            {room.isTrending && <span className="text-xs text-gold-DEFAULT">🔥</span>}
+            {isHost && (
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded cinzel"
+                style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)', fontSize: '10px' }}>
+                HOST
+              </span>
+            )}
+          </div>
+          {room.movieTitle && <p className="text-xs text-gray-400 truncate">{room.movieTitle}</p>}
         </div>
-        <div className="ml-auto flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {roomState.hostConnected && (
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+          )}
           <span className="text-xs text-gray-400">{participants.length}</span>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col">
-          <div className="relative h-48 sm:h-64 bg-black flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #0a0a0f, #1a0a2e)' }}>
-            {room.streamUrl ? (
-              <iframe
-                src={room.streamUrl}
-                className="w-full h-full"
-                allowFullScreen
-                title={room.title}
-              />
-            ) : (
-              <div className="text-center p-4">
-                <div className="text-5xl mb-3 opacity-40">🎬</div>
-                <p className="text-gray-500 text-sm">{room.movieTitle || room.title}</p>
-                <p className="text-xs text-gray-600 mt-1">Yayın yakında başlayacak</p>
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <div className="relative flex-shrink-0" style={{ height: '44%', minHeight: '180px', maxHeight: '320px' }}>
+            {hostDisconnected && !isHost && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}>
+                <div className="text-center p-4">
+                  <div className="text-4xl mb-3 animate-pulse">⏸️</div>
+                  <p className="font-bold text-white text-sm">Host bağlantısı kesildi</p>
+                  <p className="text-xs text-gray-400 mt-1">Host geri döndüğünde yayın devam edecek</p>
+                </div>
               </div>
             )}
 
-            <div className="absolute top-2 right-2 flex gap-2">
+            <div className="w-full h-full">
+              {unlocked && (
+                <VideoPlayer
+                  streamUrl={room.streamUrl}
+                  providerType={room.providerType || 'youtube'}
+                  isHost={isHost}
+                  roomState={roomState}
+                  onStateChange={handleStateChange}
+                  onUrlChange={handleUrlChange}
+                />
+              )}
+            </div>
+
+            <div className="absolute top-2 right-2 flex gap-1 pointer-events-none">
               {reactions.map(r => (
-                <div key={r.rid} className="text-2xl animate-bounce">{r.reaction}</div>
+                <div key={r.rid} className="text-xl animate-bounce pointer-events-none">{r.reaction}</div>
               ))}
             </div>
           </div>
 
-          <div className="flex gap-1 p-2 border-b border-gold-DEFAULT/10 overflow-x-auto">
+          <div className="flex gap-1 px-2 py-1.5 border-b border-gold-DEFAULT/10 overflow-x-auto flex-shrink-0"
+            style={{ background: 'rgba(15,15,20,0.9)' }}>
             {REACTIONS.map(r => (
-              <button
-                key={r}
-                onClick={() => sendReaction(r)}
-                className="text-xl hover:scale-125 transition-transform px-1"
-              >
+              <button key={r} onClick={() => sendReaction(r)}
+                className="text-lg hover:scale-125 transition-transform px-0.5 flex-shrink-0">
                 {r}
               </button>
             ))}
           </div>
 
-          <div className="flex border-b border-gold-DEFAULT/10">
-            {['chat', 'participants'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+          <div className="flex border-b border-gold-DEFAULT/10 flex-shrink-0">
+            {['chat', 'participants', ...(isHost ? ['host'] : [])].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
                 className="flex-1 py-2 text-xs font-semibold transition-colors"
                 style={{
                   color: activeTab === tab ? '#d4af37' : '#6b7280',
-                  borderBottom: activeTab === tab ? '2px solid #d4af37' : '2px solid transparent'
-                }}
-              >
-                {tab === 'chat' ? `💬 ${t('room.chat')}` : `👥 ${t('room.participants')} (${participants.length})`}
+                  borderBottom: activeTab === tab ? '2px solid #d4af37' : '2px solid transparent',
+                  fontSize: '11px'
+                }}>
+                {tab === 'chat' ? `💬 Sohbet` : tab === 'participants' ? `👥 (${participants.length})` : `🎬 Host`}
               </button>
             ))}
           </div>
 
-          {activeTab === 'chat' ? (
-            <>
-              <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
-                {messages.map(msg => (
-                  <ChatMessage key={msg.id} msg={msg} onDelete={deleteMessage} isAdmin={user?.role === 'admin'} />
-                ))}
-                <div ref={chatEndRef} />
-              </div>
+          <div className="flex-1 overflow-hidden min-h-0">
+            {activeTab === 'chat' && (
+              <div className="flex flex-col h-full">
+                <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+                  {!roomState.chatEnabled && (
+                    <div className="text-center text-xs text-gray-500 py-2">
+                      💬 Sohbet host tarafından devre dışı bırakıldı
+                    </div>
+                  )}
+                  {messages.map(msg => (
+                    <ChatMessage key={msg.id} msg={msg} onDelete={deleteMessage} canModerate={canModerate} />
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
 
-              {user ? (
-                <form onSubmit={sendMessage} className="flex gap-2 p-3 border-t border-gold-DEFAULT/10">
-                  <input
-                    value={newMsg}
-                    onChange={e => setNewMsg(e.target.value)}
-                    placeholder={t('room.sendMessage')}
-                    maxLength={500}
-                    className="flex-1 px-3 py-2 rounded-xl text-sm text-white outline-none"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
-                  />
-                  <button type="submit" className="btn-gold px-4 py-2 text-sm">
-                    {t('room.send')}
-                  </button>
-                </form>
-              ) : (
-                <div className="p-3 border-t border-gold-DEFAULT/10 text-center text-xs text-gray-500">
-                  <Link to="/login" className="text-gold-DEFAULT hover:underline">{t('room.loginToChat')}</Link>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-3">
-              {participants.map((p, i) => (
-                <div key={i} className="flex items-center gap-2 py-2 border-b border-white/5">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-cinema-dark"
-                    style={{ background: 'linear-gradient(135deg, #d4af37, #a88a20)' }}>
-                    {(p.username || 'U')[0].toUpperCase()}
+                {user && roomState.chatEnabled ? (
+                  <form onSubmit={sendMessage}
+                    className="flex gap-1.5 p-2 border-t border-gold-DEFAULT/10 flex-shrink-0">
+                    <div className="flex-1 relative">
+                      <input
+                        value={newMsg} onChange={e => setNewMsg(e.target.value)}
+                        placeholder={spamCooldown > 0 ? `${spamCooldown}s bekleyin...` : 'Mesaj yaz...'}
+                        maxLength={500}
+                        disabled={spamCooldown > 0}
+                        className="w-full px-3 py-2 rounded-xl text-white text-xs outline-none disabled:opacity-50"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${spamCooldown > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(212,175,55,0.2)'}` }}
+                      />
+                      {spamCooldown > 0 && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-red-400 font-bold">
+                          {spamCooldown}s
+                        </div>
+                      )}
+                    </div>
+                    <button type="submit" disabled={spamCooldown > 0}
+                      className="btn-gold px-3 py-2 text-xs disabled:opacity-40 flex-shrink-0">
+                      ↑
+                    </button>
+                  </form>
+                ) : !user ? (
+                  <div className="p-2 border-t border-gold-DEFAULT/10 text-center text-xs text-gray-500 flex-shrink-0">
+                    <Link to="/login" className="text-gold-DEFAULT hover:underline">Giriş yap</Link> ve sohbete katıl
                   </div>
-                  <div>
-                    <div className="text-sm text-white">{p.username}</div>
-                    <div className="text-xs text-gray-500">{p.role === 'admin' ? '⚙️ Admin' : p.vip ? '💎 VIP' : '🎬 Üye'}</div>
+                ) : null}
+              </div>
+            )}
+
+            {activeTab === 'participants' && (
+              <div className="overflow-y-auto h-full p-2">
+                {participants.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/5">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-cinema-dark flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #d4af37, #a88a20)' }}>
+                      {(p.username || 'U')[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-white truncate">{p.username}</div>
+                      <div className="text-xs text-gray-500">
+                        {p.role === 'admin' ? '⚙️' : p.vip ? '💎' : '🎬'}
+                        {room.ownerId === p.id ? <span className="text-gold-DEFAULT ml-1">Host</span> : null}
+                      </div>
+                    </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
                   </div>
-                  <div className="ml-auto">
-                    <span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'host' && isHost && (
+              <div className="overflow-y-auto h-full p-2">
+                <HostControlsPanel
+                  room={room}
+                  socket={socketRef.current}
+                  roomState={roomState}
+                  onSettingsChange={handleSettingsChange}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

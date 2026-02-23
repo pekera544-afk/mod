@@ -65,21 +65,43 @@ model User {
   createdAt    DateTime   @default(now())
   messages     Message[]
   auditLogs    AuditLog[]
+  ownedRooms   Room[]     @relation("RoomOwner")
 }
 
 model Room {
-  id           Int       @id @default(autoincrement())
-  title        String
-  description  String    @default("")
-  movieTitle   String    @default("")
-  posterUrl    String    @default("")
-  streamUrl    String    @default("")
-  isTrending   Boolean   @default(false)
-  allowedRoles String    @default("user,vip,admin")
-  maxUsers     Int       @default(100)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  messages     Message[]
+  id                   Int        @id @default(autoincrement())
+  title                String
+  description          String     @default("")
+  movieTitle           String     @default("")
+  posterUrl            String     @default("")
+  streamUrl            String     @default("")
+  providerType         String     @default("youtube")
+  isTrending           Boolean    @default(false)
+  allowedRoles         String     @default("user,vip,admin")
+  maxUsers             Int        @default(100)
+  isActive             Boolean    @default(true)
+  isLocked             Boolean    @default(false)
+  passwordHash         String?
+  chatEnabled          Boolean    @default(true)
+  spamProtectionEnabled Boolean   @default(true)
+  spamCooldownSeconds  Int        @default(3)
+  ownerId              Int?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  deletedAt            DateTime?
+  messages             Message[]
+  state                RoomState?
+  owner                User?      @relation("RoomOwner", fields: [ownerId], references: [id])
+}
+
+model RoomState {
+  id                Int      @id @default(autoincrement())
+  roomId            Int      @unique
+  isPlaying         Boolean  @default(false)
+  currentTimeSeconds Float   @default(0)
+  streamUrlVersion  Int      @default(1)
+  lastUpdatedAt     DateTime @default(now())
+  room              Room     @relation(fields: [roomId], references: [id])
 }
 
 model Message {
