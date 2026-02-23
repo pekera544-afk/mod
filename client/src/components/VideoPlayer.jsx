@@ -76,10 +76,14 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
       }
 
       const div = document.createElement('div');
+      div.style.width = '100%';
+      div.style.height = '100%';
       mountRef.current.innerHTML = '';
       mountRef.current.appendChild(div);
 
       playerRef.current = new window.YT.Player(div, {
+        width: '100%',
+        height: '100%',
         videoId,
         playerVars: {
           autoplay: 1,
@@ -103,11 +107,10 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
             p.seekTo(syncTime, true);
             if (state?.isPlaying) p.playVideo();
             else p.pauseVideo();
+            p.unMute();
             if (isHostRef.current) {
-              p.unMute();
               p.setVolume(80);
             } else {
-              p.mute();
               p.setVolume(0);
             }
             lastAppliedRef.current = { isPlaying: state?.isPlaying, time: syncTime };
@@ -211,13 +214,8 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-    if (muted) {
-      playerRef.current.mute?.();
-      playerRef.current.setVolume?.(0);
-    } else {
-      playerRef.current.unMute?.();
-      playerRef.current.setVolume?.(volume);
-    }
+    const vol = muted ? 0 : volume;
+    playerRef.current.setVolume?.(vol);
   }, [muted, volume, playerReady]);
 
   const handlePlayPause = useCallback(() => {
@@ -304,17 +302,23 @@ export default function VideoPlayer({ streamUrl, providerType, isHost, roomState
         {!isHost && videoId && (
           <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 px-3 py-1.5 rounded-lg"
             style={{ background: 'rgba(0,0,0,0.8)' }}>
-            <span className="text-xs flex-shrink-0" style={{ color: '#d4af37' }}>🎮 Host</span>
-            <span className="text-xs text-gray-400 flex-shrink-0">{formatTime(seekPos)}</span>
+            <span className="text-xs flex-shrink-0" style={{ color: '#d4af37' }}>🎮</span>
+            <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{formatTime(seekPos)}</span>
             <div className="flex-1" />
-            <button onClick={() => setMuted(v => !v)} className="text-white text-base px-1 flex-shrink-0" title={muted ? 'Sesi Aç' : 'Sessize Al'}>
-              {muted ? '🔇' : '🔊'}
+            <button
+              onClick={() => {
+                if (muted) { setMuted(false); setVolume(v => v < 10 ? 80 : v); }
+                else setMuted(true);
+              }}
+              className="text-white text-base px-1 flex-shrink-0"
+              title={muted ? 'Sesi Aç' : 'Sessize Al'}>
+              {muted || volume === 0 ? '🔇' : volume < 40 ? '🔉' : '🔊'}
             </button>
-            {!muted && (
-              <input type="range" min={0} max={100} value={volume}
-                onChange={e => setVolume(Number(e.target.value))}
-                className="w-16 cursor-pointer accent-yellow-500" />
-            )}
+            <input
+              type="range" min={0} max={100} value={muted ? 0 : volume}
+              onChange={e => { const v = Number(e.target.value); setVolume(v); setMuted(v === 0); }}
+              className="w-20 cursor-pointer accent-yellow-500"
+            />
           </div>
         )}
       </div>
