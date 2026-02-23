@@ -1,8 +1,5 @@
-const CACHE_NAME = 'yoko-ajans-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html'
-];
+const CACHE_NAME = 'yoko-ajans-v4';
+const STATIC_ASSETS = ['/'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -15,7 +12,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
-        names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
+        names.filter((name) => name !== CACHE_NAME).map((name) => {
+          console.log('[SW] Eski önbellek siliniyor:', name);
+          return caches.delete(name);
+        })
       )
     )
   );
@@ -28,10 +28,17 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) {
     event.respondWith(
       fetch(event.request).catch(() =>
-        new Response(JSON.stringify({ error: 'Offline', cached: true }), {
+        new Response(JSON.stringify({ error: 'Offline' }), {
           headers: { 'Content-Type': 'application/json' }
         })
       )
+    );
+    return;
+  }
+
+  if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request))
     );
     return;
   }
