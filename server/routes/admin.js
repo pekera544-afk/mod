@@ -124,18 +124,34 @@ router.get('/rooms', async (req, res) => {
 
 router.post('/rooms', async (req, res) => {
   try {
-    const room = await prisma.room.create({ data: req.body });
+    const { password, ...data } = req.body;
+    if (data.isLocked && password) {
+      data.passwordHash = await bcrypt.hash(password, 10);
+    }
+    const allowedFields = ['title','description','movieTitle','posterUrl','streamUrl','providerType',
+      'isLocked','passwordHash','chatEnabled','spamProtectionEnabled','spamCooldownSeconds',
+      'isTrending','allowedRoles','maxUsers','isActive'];
+    const safeData = Object.fromEntries(Object.entries(data).filter(([k]) => allowedFields.includes(k)));
+    const room = await prisma.room.create({ data: safeData });
     await logAction(req.user.id, 'CREATE_ROOM', `Room#${room.id}`, room.title);
     res.json(room);
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.put('/rooms/:id', async (req, res) => {
   try {
-    const room = await prisma.room.update({ where: { id: Number(req.params.id) }, data: req.body });
+    const { password, ...data } = req.body;
+    if (data.isLocked && password) {
+      data.passwordHash = await bcrypt.hash(password, 10);
+    }
+    const allowedFields = ['title','description','movieTitle','posterUrl','streamUrl','providerType',
+      'isLocked','passwordHash','chatEnabled','spamProtectionEnabled','spamCooldownSeconds',
+      'isTrending','allowedRoles','maxUsers','isActive'];
+    const safeData = Object.fromEntries(Object.entries(data).filter(([k]) => allowedFields.includes(k)));
+    const room = await prisma.room.update({ where: { id: Number(req.params.id) }, data: safeData });
     await logAction(req.user.id, 'UPDATE_ROOM', `Room#${req.params.id}`, room.title);
     res.json(room);
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.delete('/rooms/:id', async (req, res) => {
