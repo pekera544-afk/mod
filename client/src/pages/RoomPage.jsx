@@ -62,6 +62,7 @@ export default function RoomPage() {
   const socketRef = useRef(null);
   const chatEndRef = useRef(null);
   const spamTimerRef = useRef(null);
+  const roomStateRef = useRef(roomState);
 
   const showNotif = (msg, duration = 3000) => {
     setNotification(msg);
@@ -196,6 +197,24 @@ export default function RoomPage() {
   }, [id, token, user, unlocked, room?.ownerId]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
+
+  useEffect(() => {
+    if (!isHost || !socketRef.current) return;
+    const socket = socketRef.current;
+    const handler = ({ requesterId, roomId: reqId }) => {
+      const s = roomStateRef.current;
+      socket.emit('player_sync_response', {
+        requesterId,
+        roomId: id,
+        currentTimeSeconds: s.currentTimeSeconds || 0,
+        isPlaying: s.isPlaying || false,
+      });
+    };
+    socket.on('player_sync_request', handler);
+    return () => socket.off('player_sync_request', handler);
+  }, [isHost, id]);
 
   const handleStateChange = useCallback((update) => {
     if (!isHost && !isModerator) return;
