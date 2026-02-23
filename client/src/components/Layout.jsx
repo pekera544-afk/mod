@@ -49,6 +49,13 @@ function ActivityToast({ item, onClose }) {
   );
 }
 
+function createSocket(token) {
+  return io(window.location.origin, {
+    auth: { token: token || '' },
+    transports: ['websocket', 'polling']
+  });
+}
+
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [socket, setSocket] = useState(null);
@@ -58,6 +65,7 @@ export default function Layout() {
   const [toasts, setToasts] = useState([]);
   const { user, updateUser } = useAuth();
   const socketRef = useRef(null);
+  const prevUserIdRef = useRef(undefined);
 
   const addToast = (item) => {
     const id = Date.now() + Math.random();
@@ -68,11 +76,17 @@ export default function Layout() {
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
   useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    if (prevUserIdRef.current === currentUserId) return;
+    prevUserIdRef.current = currentUserId;
+
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     const token = localStorage.getItem('yoko_token');
-    const sock = io(window.location.origin, {
-      auth: { token: token || '' },
-      transports: ['websocket', 'polling']
-    });
+    const sock = createSocket(token);
     socketRef.current = sock;
     setSocket(sock);
 
@@ -88,6 +102,10 @@ export default function Layout() {
 
     sock.on('notification_counts', (counts) => {
       setNotifCounts(counts);
+    });
+
+    sock.on('friend_request_received', () => {
+      setNotifCounts(prev => ({ ...prev, friendRequests: (prev.friendRequests || 0) + 1 }));
     });
 
     sock.on('new_room_opened', (data) => {
@@ -118,7 +136,7 @@ export default function Layout() {
     return () => {
       sock.disconnect();
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.xp !== undefined) {
@@ -133,6 +151,7 @@ export default function Layout() {
         onMenuClick={() => setSidebarOpen(true)}
         socket={socket}
         notifCounts={notifCounts}
+        setNotifCounts={setNotifCounts}
         xpInfo={xpInfo}
       />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />

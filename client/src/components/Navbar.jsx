@@ -8,7 +8,7 @@ import CreateRoomModal from './CreateRoomModal';
 import UserAvatar from './UserAvatar';
 import NotificationsPanel from './NotificationsPanel';
 
-export default function Navbar({ onMenuClick, socket, notifCounts, xpInfo }) {
+export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCounts, xpInfo }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { settings } = useSettings();
@@ -92,7 +92,7 @@ export default function Navbar({ onMenuClick, socket, notifCounts, xpInfo }) {
                     )}
                   </button>
                   {showNotif && (
-                    <NotificationsPanel socket={socket} counts={notifCounts} onClose={() => setShowNotif(false)} />
+                    <NotificationsPanel socket={socket} counts={notifCounts} setNotifCounts={setNotifCounts} onClose={() => setShowNotif(false)} />
                   )}
                 </div>
 

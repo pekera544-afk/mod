@@ -254,7 +254,17 @@ function setupSocket(io) {
         const targetSocketId = userSockets.get(Number(toId));
         if (targetSocketId) {
           io.to(targetSocketId).emit('friend_request_received', {
-            from: { id: socket.user.id, username: socket.user.username, avatarUrl: socket.user.avatarUrl || '' }
+            id: Date.now(),
+            from: {
+              id: socket.user.id,
+              username: socket.user.username,
+              avatarUrl: socket.user.avatarUrl || '',
+              avatarType: socket.user.avatarType || 'image',
+              frameType: socket.user.frameType || '',
+              role: socket.user.role,
+              vip: socket.user.vip,
+              level: socket.user.level || 1
+            }
           });
           const count = await prisma.friendRequest.count({ where: { toId: Number(toId), status: 'pending' } });
           const dmCount = await prisma.directMessage.count({ where: { toId: Number(toId), read: false } });
