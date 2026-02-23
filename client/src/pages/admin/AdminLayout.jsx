@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard', icon: '📊', exact: true },
@@ -22,15 +23,17 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { settings } = useSettings();
   const isRoot = location.pathname === '/admin';
   const currentLabel = getCurrentPageLabel(location.pathname);
+  const siteTitle = settings?.siteTitle || 'YOKO AJANS';
 
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 flex-shrink-0 hidden md:flex flex-col"
         style={{ background: 'rgba(10,10,16,0.98)', borderRight: '1px solid rgba(212,175,55,0.15)' }}>
         <div className="p-4 border-b border-gold-DEFAULT/10">
-          <div className="cinzel font-bold text-sm gold-text">YOKO AJANS</div>
+          <div className="cinzel font-bold text-sm gold-text">{siteTitle}</div>
           <div className="text-xs text-gray-500 mt-0.5">Admin Panel</div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
@@ -127,6 +130,13 @@ export default function AdminLayout() {
         <div className="md:hidden px-2 py-2 overflow-x-auto scrollbar-hide"
           style={{ background: 'rgba(10,10,16,0.95)', borderBottom: '1px solid rgba(212,175,55,0.1)' }}>
           <div className="flex gap-1" style={{ minWidth: 'max-content' }}>
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all"
+              style={{ color: '#9ca3af', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              🏠 Site
+            </Link>
             {adminNav.map(item => {
               const active = item.exact ? location.pathname === item.href : location.pathname.startsWith(item.href) && item.href !== '/admin';
               const exactActive = item.exact && location.pathname === '/admin';

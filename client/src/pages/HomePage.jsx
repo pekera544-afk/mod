@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import CreateRoomModal from '../components/CreateRoomModal';
 import PasswordPrompt from '../components/PasswordPrompt';
+import UserProfileCard from '../components/UserProfileCard';
 import LandingPage from './LandingPage';
 
 function StatCard({ icon, value, label, color = '#d4af37' }) {
@@ -18,17 +19,21 @@ function StatCard({ icon, value, label, color = '#d4af37' }) {
   );
 }
 
-function MemberCard({ user, rank }) {
+function MemberCard({ user, rank, onClick }) {
   const isFirst = rank === 1;
   const borderColor = isFirst ? '#d4af37' : rank === 2 ? '#9b59b6' : '#b8962a';
   const glowColor = isFirst ? 'rgba(212,175,55,0.4)' : rank === 2 ? 'rgba(155,89,182,0.4)' : 'rgba(184,150,42,0.3)';
   const initial = user.username?.[0]?.toUpperCase() || '?';
   return (
-    <div className="flex-1 min-w-[100px] rounded-2xl p-4 flex flex-col items-center gap-2 relative overflow-hidden"
+    <div
+      onClick={onClick}
+      className="flex-1 min-w-[100px] rounded-2xl p-4 flex flex-col items-center gap-2 relative overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]"
       style={{
         background: `linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))`,
         border: `1.5px solid ${borderColor}`,
         boxShadow: `0 0 20px ${glowColor}`,
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent',
       }}>
       <div className="absolute inset-0 opacity-10"
         style={{ background: `radial-gradient(circle at 50% 30%, ${borderColor}, transparent 70%)` }} />
@@ -38,11 +43,14 @@ function MemberCard({ user, rank }) {
       </div>
       <div className="w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl mt-3 relative"
         style={{ background: `linear-gradient(135deg, ${borderColor}, ${borderColor}80)`, color: '#0f0f14', boxShadow: `0 0 15px ${glowColor}` }}>
-        {initial}
+        {user.avatarUrl
+          ? <img src={user.avatarUrl} alt={user.username} className="w-full h-full rounded-full object-cover" />
+          : initial
+        }
       </div>
       <div>
         <div className="font-black text-sm text-white text-center tracking-wide uppercase">{user.username}</div>
-        <div className="text-xs text-center" style={{ color: borderColor }}>@{user.username?.toLowerCase()}</div>
+        <div className="text-xs text-center" style={{ color: borderColor }}>Lv.{user.level} • {user.xp} XP</div>
       </div>
       {user.vip && (
         <span className="text-xs px-2 py-0.5 rounded-full font-bold"
@@ -225,6 +233,7 @@ export default function HomePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [totalMembers, setTotalMembers] = useState(0);
   const [vipCount, setVipCount] = useState(0);
+  const [profileUserId, setProfileUserId] = useState(null);
 
   const fetchRooms = () => {
     axios.get('/api/rooms').then(r => setRooms(r.data.filter(rm => rm.isActive && !rm.deletedAt))).catch(() => {});
@@ -351,13 +360,15 @@ export default function HomePage() {
               <h2 className="font-bold text-white text-sm flex items-center gap-2">
                 <span style={{ color: '#d4af37' }}>⚡</span> Ajansta Öne Çıkanlar
               </h2>
-              <button className="text-xs px-3 py-1 rounded-full"
+              <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
                 style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
                 Tümü →
-              </button>
+              </Link>
             </div>
             <div className="flex gap-2">
-              {topUsers.map((u, i) => <MemberCard key={u.id} user={u} rank={i + 1} />)}
+              {topUsers.map((u, i) => (
+                <MemberCard key={u.id} user={u} rank={i + 1} onClick={() => setProfileUserId(u.id)} />
+              ))}
             </div>
           </div>
         )}
@@ -437,7 +448,10 @@ export default function HomePage() {
               <h2 className="font-bold text-white text-sm flex items-center gap-2">
                 <span style={{ color: '#d4af37' }}>🔔</span> Duyurular
               </h2>
-              <button className="text-xs px-2 py-0.5 text-gray-400 hover:text-white">Tümünü Gör</button>
+              <Link to="/announcements" className="text-xs px-3 py-1 rounded-full transition-colors"
+                style={{ background: 'rgba(212,175,55,0.08)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
+                Tümünü Gör →
+              </Link>
             </div>
             <div className="space-y-2">
               {announcements.map(a => <AnnouncementCard key={a.id} ann={a} />)}
@@ -445,6 +459,10 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {profileUserId && (
+        <UserProfileCard userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      )}
 
       {showCreate && (
         <CreateRoomModal

@@ -18,21 +18,25 @@ function BackButton() {
   );
 }
 
-function RoomCard({ room, onJoinLocked }) {
+function RoomCard({ room, onJoinLocked, highlight }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isOwned = user && room.ownerId === user.id;
   const liveCount = room.liveCount || 0;
 
   const handleClick = () => {
-    if (room.isLocked) { onJoinLocked(room); return; }
+    if (room.isLocked && !isOwned) { onJoinLocked(room); return; }
     navigate(`/rooms/${room.id}`);
   };
 
   return (
     <div onClick={handleClick}
-      className="p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01] hover:border-gold-DEFAULT/30"
-      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.12)' }}>
+      className="p-4 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
+      style={{
+        background: highlight ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${highlight ? 'rgba(212,175,55,0.35)' : 'rgba(212,175,55,0.12)'}`,
+        boxShadow: highlight ? '0 0 20px rgba(212,175,55,0.06)' : 'none',
+      }}>
       <div className="flex gap-3">
         {room.posterUrl ? (
           <img src={room.posterUrl} alt={room.title} className="w-16 h-20 object-cover rounded-xl flex-shrink-0" />
@@ -46,17 +50,18 @@ function RoomCard({ room, onJoinLocked }) {
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-white font-bold text-sm leading-tight">{room.title}</h3>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {room.isLocked && <span className="text-xs text-gray-400">🔒</span>}
+              {room.isLocked && !isOwned && <span className="text-xs text-gray-400">🔒</span>}
+              {room.isLocked && isOwned && <span className="text-xs text-gray-400">🔑</span>}
               {room.isTrending && <span className="text-xs" style={{ color: '#ff6400' }}>🔥</span>}
             </div>
           </div>
           {room.movieTitle && (
-            <p className="text-xs text-gold-DEFAULT mt-0.5 truncate">{room.movieTitle}</p>
+            <p className="text-xs mt-0.5 truncate" style={{ color: '#d4af37' }}>{room.movieTitle}</p>
           )}
           {room.description && (
             <p className="text-xs text-gray-500 mt-1 line-clamp-2">{room.description}</p>
           )}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-2 flex-wrap gap-1">
             <div className="flex items-center gap-1.5">
               {liveCount > 0 ? (
                 <>
@@ -70,14 +75,94 @@ function RoomCard({ room, onJoinLocked }) {
                 </>
               )}
             </div>
-            {isOwned && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
-                👑 Sahibi
+            <div className="flex items-center gap-1.5">
+              {isOwned && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+                  style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
+                  👑 Sahibi
+                </span>
+              )}
+              {room.owner && !isOwned && (
+                <span className="text-xs text-gray-500">@{room.owner.username}</span>
+              )}
+              <span className="text-xs text-gray-600 capitalize">{room.providerType}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MyRoomBanner({ room, onDelete }) {
+  const navigate = useNavigate();
+  const liveCount = room.liveCount || 0;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await axios.delete(`/api/rooms/${room.id}`);
+      onDelete();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Oda kapatılırken hata oluştu');
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl p-4 mb-4 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))', border: '1.5px solid rgba(212,175,55,0.4)' }}>
+      <div className="absolute inset-0 opacity-5"
+        style={{ background: 'radial-gradient(circle at 80% 50%, #d4af37, transparent 70%)' }} />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold px-2 py-1 rounded-full"
+            style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.35)' }}>
+            👑 Benim Odam
+          </span>
+          <div className="flex items-center gap-1.5">
+            {liveCount > 0 && (
+              <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
+                {liveCount} canlı
               </span>
             )}
-            <span className="text-xs text-gray-600 capitalize">{room.providerType}</span>
           </div>
+        </div>
+        <h3 className="text-white font-bold text-sm mb-0.5">{room.title}</h3>
+        {room.movieTitle && <p className="text-xs mb-3" style={{ color: '#d4af37' }}>{room.movieTitle}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate(`/rooms/${room.id}`)}
+            className="flex-1 py-2 rounded-xl text-sm font-bold transition-all"
+            style={{ background: 'rgba(212,175,55,0.2)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.4)' }}>
+            ▶ Odama Gir
+          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="px-3 py-2 rounded-xl text-xs transition-all"
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+              🗑️ Kapat
+            </button>
+          ) : (
+            <div className="flex gap-1.5">
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-3 py-2 rounded-xl text-xs font-bold"
+                style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
+                {deleting ? '...' : 'Evet'}
+              </button>
+              <button onClick={() => setConfirmDelete(false)}
+                className="px-3 py-2 rounded-xl text-xs"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.1)' }}>
+                İptal
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -88,6 +173,7 @@ export default function RoomsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
+  const [myRoom, setMyRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [lockedRoom, setLockedRoom] = useState(null);
@@ -102,9 +188,20 @@ export default function RoomsPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchRooms(); }, []);
+  const fetchMyRoom = () => {
+    if (!user) return;
+    axios.get('/api/rooms/my')
+      .then(r => setMyRoom(r.data))
+      .catch(() => setMyRoom(null));
+  };
 
-  const filtered = rooms.filter(r => {
+  useEffect(() => {
+    fetchRooms();
+    fetchMyRoom();
+  }, [user]);
+
+  const otherRooms = rooms.filter(r => !user || r.ownerId !== user.id);
+  const filtered = otherRooms.filter(r => {
     const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase()) || r.movieTitle?.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'all' || (filter === 'youtube' && r.providerType === 'youtube') || (filter === 'external' && r.providerType === 'external') || (filter === 'open' && !r.isLocked) || (filter === 'live' && (r.liveCount || 0) > 0);
     return matchSearch && matchFilter;
@@ -116,7 +213,7 @@ export default function RoomsPage() {
         <div className="flex items-center gap-3 mb-4">
           <BackButton />
           <h1 className="cinzel font-bold text-lg gold-text flex-1">🎬 Sinema Odaları</h1>
-          {user && (
+          {user && !myRoom && (
             <button onClick={() => setShowCreate(true)}
               className="text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1"
               style={{ background: 'linear-gradient(135deg,rgba(212,175,55,0.25),rgba(212,175,55,0.1))', color: '#d4af37', border: '1px solid rgba(212,175,55,0.5)' }}>
@@ -124,6 +221,13 @@ export default function RoomsPage() {
             </button>
           )}
         </div>
+
+        {myRoom && (
+          <MyRoomBanner
+            room={myRoom}
+            onDelete={() => { setMyRoom(null); fetchRooms(); }}
+          />
+        )}
 
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -157,8 +261,8 @@ export default function RoomsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 space-y-3">
             <div className="text-4xl">🎬</div>
-            <p className="text-gray-500 text-sm">{search ? 'Arama sonucu bulunamadı' : 'Henüz aktif oda yok'}</p>
-            {user && !search && (
+            <p className="text-gray-500 text-sm">{search ? 'Arama sonucu bulunamadı' : 'Henüz başka aktif oda yok'}</p>
+            {user && !search && !myRoom && (
               <button onClick={() => setShowCreate(true)}
                 className="text-sm px-6 py-2.5 rounded-xl font-bold mt-2"
                 style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.3)' }}>
@@ -178,7 +282,7 @@ export default function RoomsPage() {
       {showCreate && (
         <CreateRoomModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); fetchRooms(); }}
+          onCreated={(room) => { setShowCreate(false); setMyRoom(room); fetchRooms(); }}
         />
       )}
 

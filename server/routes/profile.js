@@ -57,6 +57,18 @@ router.get('/friends/requests', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/friends/sent', requireAuth, async (req, res) => {
+  try {
+    const sent = await prisma.friendRequest.findMany({
+      where: { fromId: req.user.id, status: 'pending' },
+      select: { id: true, toId: true, createdAt: true }
+    });
+    res.json(sent);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/dm/:userId', requireAuth, async (req, res) => {
   try {
     const otherId = Number(req.params.userId);

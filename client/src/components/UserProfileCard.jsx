@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
@@ -13,6 +13,7 @@ function ProfileCardContent({ userId, onClose, socket }) {
   const [openDM, setOpenDM] = useState(false);
   const [dmMsg, setDmMsg] = useState('');
   const [sentMsg, setSentMsg] = useState('');
+  const [removingFriend, setRemovingFriend] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -24,20 +25,44 @@ function ProfileCardContent({ userId, onClose, socket }) {
 
   useEffect(() => {
     if (!me || !userId || me.id === userId) return;
+    const token = localStorage.getItem('yoko_token');
     fetch('/api/profile/friends/list', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('yoko_token')}` }
+      headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
       .then(friends => {
         if (Array.isArray(friends) && friends.find(f => f.id === userId))
           setFriendStatus('friends');
-      });
+      })
+      .catch(() => {});
+    fetch('/api/profile/friends/sent', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.find(r => r.toId === userId))
+          setFriendStatus(s => s !== 'friends' ? 'pending' : s);
+      })
+      .catch(() => {});
   }, [me, userId]);
 
   function sendFriendRequest() {
     if (!socket || !userId) return;
     socket.emit('friend_request', { toId: userId });
     setFriendStatus('pending');
+  }
+
+  function removeFriend() {
+    if (removingFriend) return;
+    setRemovingFriend(true);
+    const token = localStorage.getItem('yoko_token');
+    fetch(`/api/profile/friends/${userId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(() => setFriendStatus(null))
+      .catch(() => {})
+      .finally(() => setRemovingFriend(false));
   }
 
   function sendDM() {
@@ -156,7 +181,31 @@ function ProfileCardContent({ userId, onClose, socket }) {
 
             {me && me.id !== userId && (
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {friendStatus !== 'friends' && (
+                {friendStatus === 'friends' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{
+                      flex: 1, textAlign: 'center', fontSize: 13, color: '#86efac',
+                      padding: '10px 0', background: 'rgba(134,239,172,0.08)',
+                      borderRadius: 12, border: '1px solid rgba(134,239,172,0.2)'
+                    }}>
+                      ✓ Arkadaşsınız
+                    </div>
+                    <button
+                      type="button"
+                      onPointerDown={removeFriend}
+                      disabled={removingFriend}
+                      style={{
+                        padding: '10px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                        background: 'rgba(239,68,68,0.1)', color: '#f87171',
+                        border: '1px solid rgba(239,68,68,0.25)', cursor: 'pointer',
+                        touchAction: 'manipulation', opacity: removingFriend ? 0.5 : 1
+                      }}
+                      title="Arkadaşlıktan çıkar"
+                    >
+                      ✕ Çıkar
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
                     onPointerDown={sendFriendRequest}
@@ -170,9 +219,6 @@ function ProfileCardContent({ userId, onClose, socket }) {
                   >
                     {friendStatus === 'pending' ? '⏳ İstek Gönderildi' : '➕ Arkadaş Ekle'}
                   </button>
-                )}
-                {friendStatus === 'friends' && (
-                  <div style={{ textAlign: 'center', fontSize: 13, color: '#86efac', padding: '4px 0' }}>✓ Arkadaşsınız</div>
                 )}
                 <button
                   type="button"
