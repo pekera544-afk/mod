@@ -51,6 +51,18 @@ if (fs.existsSync(distPath)) {
 
 require('./server/socket')(io);
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`Port ${PORT} mesgul, 3 saniye sonra tekrar deneniyor...`);
+    setTimeout(() => {
+      server.close();
+      server.listen(PORT, '0.0.0.0');
+    }, 3000);
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`YOKO AJANS server running at http://0.0.0.0:${PORT}`);
 });
