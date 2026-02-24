@@ -13,7 +13,8 @@ const adminNav = [
   { href: '/admin/news', label: 'Haberler', icon: '📰' },
   { href: '/admin/announcements', label: 'Duyurular', icon: '📢' },
   { href: '/admin/events', label: 'Etkinlikler', icon: '🗓️' },
-  { href: '/admin/audit-log', label: 'İşlem Geçmişi', icon: '📋' }
+  { href: '/admin/audit-log', label: 'İşlem Geçmişi', icon: '📋' },
+  { href: '/admin/backup', label: 'Yedekleme', icon: '💾' }
 ];
 
 function getCurrentPageLabel(pathname) {
