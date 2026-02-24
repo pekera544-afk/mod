@@ -3,6 +3,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
+COPY prisma ./prisma
+
 RUN npm ci
 
 COPY . .
@@ -15,13 +17,14 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
+COPY prisma ./prisma
+
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/client/dist ./client/dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY server ./server
-COPY prisma ./prisma
 COPY index.js ./
 
 RUN mkdir -p uploads

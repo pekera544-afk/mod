@@ -11,7 +11,6 @@
     "dev": "node index.js",
     "build": "npm run build:client && npx prisma generate",
     "build:client": "cd client && npx vite build --outDir dist",
-    "postinstall": "npx prisma generate",
     "seed": "node server/seed.js",
     "db:migrate": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
