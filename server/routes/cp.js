@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const CP_TYPES = ['sevgili', 'kanka', 'arkadas', 'aile'];
