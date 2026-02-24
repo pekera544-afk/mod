@@ -30,6 +30,6 @@ COPY prisma.config.ts ./
 
 RUN mkdir -p uploads
 
-EXPOSE 5000
+EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy; node index.js"]
