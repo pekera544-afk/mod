@@ -18,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get('/health', (req, res) => res.status(200).json({ ok: true }));
 app.use('/api/settings', require('./server/routes/settings'));
 app.use('/api/auth', require('./server/routes/auth'));
 app.use('/api/rooms', require('./server/routes/rooms'));

@@ -29,4 +29,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260224000000_init 2>/dev/null || true; npx prisma migrate deploy; node index.js"]
+CMD ["node", "index.js"]
