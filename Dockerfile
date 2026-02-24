@@ -29,4 +29,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["node", "index.js"]
+CMD ["sh", "-c", "node server/seed.js && node index.js"]
