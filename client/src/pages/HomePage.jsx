@@ -483,6 +483,41 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Top Users (mobile only - shown in main col) */}
+            <div className="lg:hidden">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                  <span style={{ color: '#d4af37' }}>🏆</span> Sıralama
+                </h2>
+                <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
+                  style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
+                  Tümü →
+                </Link>
+              </div>
+              {topUsers.length > 0 ? (
+                <div className="flex gap-2">
+                  {topUsers.map((u, i) => (
+                    <MemberCard key={u.id} user={u} rank={i + 1} onClick={() => setProfileUserId(u.id)} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {[1, 2, 3].map(rank => (
+                    <div key={rank} className="flex-1 rounded-2xl p-3 flex flex-col items-center gap-2"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.1)' }}>
+                      <div className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(212,175,55,0.1)', color: 'rgba(212,175,55,0.4)' }}>
+                        {rank === 1 ? '👑 #1' : rank === 2 ? '🥈 #2' : '🥉 #3'}
+                      </div>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>?</div>
+                      <div className="text-xs text-gray-600">Boş</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* News */}
             {news.length > 0 && (
               <div>
@@ -532,24 +567,39 @@ export default function HomePage() {
             </div>
 
             {/* Top Users */}
-            {topUsers.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-bold text-white text-sm flex items-center gap-2">
-                    <span style={{ color: '#d4af37' }}>⚡</span> Öne Çıkanlar
-                  </h2>
-                  <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
-                    style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
-                    Tümü →
-                  </Link>
-                </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-white text-sm flex items-center gap-2">
+                  <span style={{ color: '#d4af37' }}>🏆</span> En İyi Üyeler
+                </h2>
+                <Link to="/leaderboard" className="text-xs px-3 py-1 rounded-full"
+                  style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.2)' }}>
+                  Tümü →
+                </Link>
+              </div>
+              {topUsers.length > 0 ? (
                 <div className="flex gap-2">
                   {topUsers.map((u, i) => (
                     <MemberCard key={u.id} user={u} rank={i + 1} onClick={() => setProfileUserId(u.id)} />
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex gap-2">
+                  {[1, 2, 3].map(rank => (
+                    <div key={rank} className="flex-1 rounded-2xl p-3 flex flex-col items-center gap-2"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.1)' }}>
+                      <div className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(212,175,55,0.1)', color: 'rgba(212,175,55,0.4)' }}>
+                        {rank === 1 ? '👑 #1' : rank === 2 ? '🥈 #2' : '🥉 #3'}
+                      </div>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>?</div>
+                      <div className="text-xs text-gray-600">Boş</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Quick Access */}
             <div>
