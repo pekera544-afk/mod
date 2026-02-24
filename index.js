@@ -28,6 +28,7 @@ app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));
 app.use('/api/pwa', require('./server/routes/pwa'));
 app.use('/api/upload', require('./server/routes/upload'));
+app.use('/api/cp', require('./server/routes/cp'));
 
 const uploadsPath = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });

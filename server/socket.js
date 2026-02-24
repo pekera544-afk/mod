@@ -127,22 +127,24 @@ function setupSocket(io) {
     next();
   });
 
-  io.on('connection', async (socket) => {
+  io.on('connection', (socket) => {
     if (socket.user.id) {
       userSockets.set(socket.user.id, socket.id);
-      try {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: socket.user.id },
-          select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true, xp: true }
-        });
-        if (dbUser) {
-          socket.user = { ...socket.user, ...dbUser };
-          socket.emit('xp_update', { xp: dbUser.xp, level: dbUser.level, xpForNext: getXpForNextLevel(dbUser.level) });
-          const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
-          const unreadDMs = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false, deletedAt: null } });
-          socket.emit('notification_counts', { friendRequests: pending, unreadDMs });
-        }
-      } catch {}
+      (async () => {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: socket.user.id },
+            select: { id: true, username: true, role: true, vip: true, avatarUrl: true, avatarType: true, frameType: true, frameColor: true, frameExpiresAt: true, chatBubble: true, usernameColor: true, usernameColorExpires: true, badges: true, level: true, xp: true }
+          });
+          if (dbUser) {
+            socket.user = { ...socket.user, ...dbUser };
+            socket.emit('xp_update', { xp: dbUser.xp, level: dbUser.level, xpForNext: getXpForNextLevel(dbUser.level) });
+            const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
+            const unreadDMs = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false, deletedAt: null } });
+            socket.emit('notification_counts', { friendRequests: pending, unreadDMs });
+          }
+        } catch {}
+      })();
     }
 
     socket.on('join_global_chat', () => {
@@ -779,6 +781,118 @@ function setupSocket(io) {
         roomStates.delete(key);
         roomModerators.delete(key);
       } catch (err) { console.error('Delete room error:', err); }
+    });
+
+    socket.on('cp_request', async ({ receiverId, type }) => {
+      if (!socket.user.id) return;
+      try {
+        const token = socket.user;
+        const senderId = socket.user.id;
+        const CP_LABELS = { sevgili: 'Sevgili ❤️', kanka: 'Kanka 🤝', arkadas: 'Arkadaş 👥', aile: 'Aile 👨‍👩‍👧' };
+        const CP_TYPES = ['sevgili', 'kanka', 'arkadas', 'aile'];
+        if (!CP_TYPES.includes(type)) return;
+        if (senderId === receiverId) return;
+
+        const [sender, receiver] = await Promise.all([
+          prisma.user.findUnique({ where: { id: senderId } }),
+          prisma.user.findUnique({ where: { id: receiverId } })
+        ]);
+        if (!sender || !receiver) return;
+
+        const now = new Date();
+        const lastReset = new Date(sender.cpLastReset || now);
+        const monthDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + (now.getMonth() - lastReset.getMonth());
+        let cpCount = sender.cpRequestCount || 0;
+        if (monthDiff >= 1) {
+          cpCount = 0;
+          await prisma.user.update({ where: { id: senderId }, data: { cpRequestCount: 0, cpLastReset: now } });
+        }
+        const limit = sender.vip ? 10 : 3;
+        if (cpCount >= limit) {
+          socket.emit('cp_error', { message: `Aylık CP isteği hakkınız doldu (${limit})` });
+          return;
+        }
+
+        const existing = await prisma.cpRequest.findFirst({ where: { senderId, receiverId: Number(receiverId), status: 'pending' } });
+        if (existing) { socket.emit('cp_error', { message: 'Zaten bekleyen bir isteğiniz var' }); return; }
+
+        const senderRel = await prisma.cpRelationship.findFirst({ where: { OR: [{ user1Id: senderId }, { user2Id: senderId }] } });
+        if (senderRel) { socket.emit('cp_error', { message: 'Zaten aktif bir CP ilişkiniz var' }); return; }
+
+        const request = await prisma.cpRequest.create({
+          data: { senderId, receiverId: Number(receiverId), type },
+          include: { sender: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } } }
+        });
+        await prisma.user.update({ where: { id: senderId }, data: { cpRequestCount: { increment: 1 } } });
+
+        const receiverSocketId = userSockets.get(Number(receiverId));
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit('cp_request_received', {
+            ...request, label: CP_LABELS[request.type] || request.type
+          });
+        }
+        socket.emit('cp_request_sent', { success: true });
+      } catch (err) { console.error('cp_request error:', err); }
+    });
+
+    socket.on('cp_accept', async ({ requestId }) => {
+      if (!socket.user.id) return;
+      try {
+        const request = await prisma.cpRequest.findUnique({ where: { id: Number(requestId) } });
+        if (!request || request.receiverId !== socket.user.id || request.status !== 'pending') return;
+
+        const [existA, existB] = await Promise.all([
+          prisma.cpRelationship.findFirst({ where: { OR: [{ user1Id: request.senderId }, { user2Id: request.senderId }] } }),
+          prisma.cpRelationship.findFirst({ where: { OR: [{ user1Id: socket.user.id }, { user2Id: socket.user.id }] } })
+        ]);
+        if (existA || existB) { socket.emit('cp_error', { message: 'Taraflardan biri zaten aktif bir CP ilişkisinde' }); return; }
+
+        const CP_LABELS = { sevgili: 'Sevgili ❤️', kanka: 'Kanka 🤝', arkadas: 'Arkadaş 👥', aile: 'Aile 👨‍👩‍👧' };
+        const [rel] = await prisma.$transaction([
+          prisma.cpRelationship.create({ data: { user1Id: request.senderId, user2Id: socket.user.id, type: request.type } }),
+          prisma.cpRequest.update({ where: { id: Number(requestId) }, data: { status: 'accepted' } }),
+        ]);
+
+        const [user1, user2] = await Promise.all([
+          prisma.user.findUnique({ where: { id: request.senderId }, select: { id: true, username: true, avatarUrl: true, avatarType: true } }),
+          prisma.user.findUnique({ where: { id: socket.user.id }, select: { id: true, username: true, avatarUrl: true, avatarType: true } })
+        ]);
+
+        const payload = { relationship: rel, label: CP_LABELS[rel.type] || rel.type, partner: null };
+        const senderSocketId = userSockets.get(request.senderId);
+        if (senderSocketId) io.to(senderSocketId).emit('cp_accepted', { ...payload, partner: user2 });
+        socket.emit('cp_accepted', { ...payload, partner: user1 });
+      } catch (err) { console.error('cp_accept error:', err); }
+    });
+
+    socket.on('cp_reject', async ({ requestId }) => {
+      if (!socket.user.id) return;
+      try {
+        const request = await prisma.cpRequest.findUnique({ where: { id: Number(requestId) } });
+        if (!request || request.receiverId !== socket.user.id) return;
+        await prisma.cpRequest.update({ where: { id: Number(requestId) }, data: { status: 'rejected' } });
+        socket.emit('cp_rejected', { requestId });
+      } catch {}
+    });
+
+    socket.on('cp_break', async () => {
+      if (!socket.user.id) return;
+      try {
+        const rel = await prisma.cpRelationship.findFirst({
+          where: { OR: [{ user1Id: socket.user.id }, { user2Id: socket.user.id }] }
+        });
+        if (!rel) return;
+        const partnerId = rel.user1Id === socket.user.id ? rel.user2Id : rel.user1Id;
+        await prisma.cpRelationship.deleteMany({ where: { OR: [{ user1Id: socket.user.id }, { user2Id: socket.user.id }] } });
+        const partnerSocketId = userSockets.get(partnerId);
+        if (partnerSocketId) io.to(partnerSocketId).emit('cp_broken', { by: socket.user.username });
+        socket.emit('cp_broken', { by: socket.user.username });
+      } catch {}
+    });
+
+    socket.on('global_typing', () => {
+      if (!socket.user.id || !socket.user.username) return;
+      socket.to('global_chat').emit('user_typing', { username: socket.user.username, userId: socket.user.id });
     });
 
     socket.on('disconnect', () => {

@@ -174,11 +174,13 @@ export default function RoomPage() {
 
     const socket = io({ auth: { token } });
     socketRef.current = socket;
-    socket.emit('join_room', id);
 
-    if (user && room.ownerId === user.id) {
-      socket.emit('claim_host', id);
-    }
+    socket.on('connect', () => {
+      socket.emit('join_room', id);
+      if (user && room.ownerId === user.id) {
+        socket.emit('claim_host', id);
+      }
+    });
 
     socket.on('host_granted', () => {
       setIsHost(true);
