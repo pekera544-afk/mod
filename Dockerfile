@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -13,9 +13,11 @@ RUN npm run build:client
 RUN npx prisma generate
 RUN npm prune --omit=dev
 
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/client/dist ./client/dist
