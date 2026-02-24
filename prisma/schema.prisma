@@ -1,6 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -94,8 +93,6 @@ model User {
   xp              Int              @default(0)
   level           Int              @default(1)
   bio             String           @default("")
-  cpRequestCount  Int              @default(0)
-  cpLastReset     DateTime         @default(now())
   createdAt       DateTime         @default(now())
   messages        Message[]
   globalMessages  GlobalMessage[]
@@ -112,10 +109,6 @@ model User {
   roomModsHeld    RoomModerator[]  @relation("ModeratorUser")
   roomBansGiven   RoomBan[]        @relation("BanBanner")
   roomBansHeld    RoomBan[]        @relation("BanUser")
-  cpRequestsSent  CpRequest[]      @relation("CpSender")
-  cpRequestsRecv  CpRequest[]      @relation("CpReceiver")
-  cpRelationsA    CpRelationship[] @relation("CpUserA")
-  cpRelationsB    CpRelationship[] @relation("CpUserB")
 }
 
 model Room {
@@ -280,26 +273,4 @@ model News {
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-}
-
-model CpRequest {
-  id         Int      @id @default(autoincrement())
-  senderId   Int
-  receiverId Int
-  type       String
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
-  sender     User     @relation("CpSender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver   User     @relation("CpReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-}
-
-model CpRelationship {
-  id        Int      @id @default(autoincrement())
-  user1Id   Int
-  user2Id   Int
-  type      String
-  createdAt DateTime @default(now())
-  user1     User     @relation("CpUserA", fields: [user1Id], references: [id], onDelete: Cascade)
-  user2     User     @relation("CpUserB", fields: [user2Id], references: [id], onDelete: Cascade)
-  @@unique([user1Id, user2Id])
 }

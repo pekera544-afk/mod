@@ -21,8 +21,8 @@ router.get('/manifest', async (req, res) => {
       display: p.display,
       orientation: 'portrait',
       icons: [
-        { src: p.icon192Url || '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: p.icon512Url || '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+        { src: p.icon192Url, sizes: '192x192', type: 'image/png' },
+        { src: p.icon512Url, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
       ],
       sw_version: p.version
     };
