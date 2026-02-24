@@ -29,4 +29,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["node", "index.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node index.js"]
