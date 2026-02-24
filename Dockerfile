@@ -23,10 +23,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/index.js ./
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/prisma.config.ts ./
+COPY --from=builder /app/start.sh ./
 
-RUN mkdir -p uploads
+RUN chmod +x start.sh && mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node index.js"]
+CMD ["sh", "start.sh"]
