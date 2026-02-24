@@ -126,6 +126,10 @@ async function seed() {
   console.log('Seed complete!');
 }
 
-seed()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+if (require.main === module) {
+  seed()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());
+}
+
+module.exports = seed;

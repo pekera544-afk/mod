@@ -75,4 +75,5 @@ server.on('error', (err) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`YOKO AJANS server running at http://0.0.0.0:${PORT}`);
+  require('./server/seed')().catch(err => console.error('Seed error:', err.message));
 });
