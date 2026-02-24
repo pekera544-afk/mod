@@ -29,4 +29,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma db push 2>/dev/null; node server/seed.js 2>/dev/null; node index.js"]
+CMD ["sh", "-c", "npx prisma db push 2>/dev/null; node server/seed.js & node index.js"]
