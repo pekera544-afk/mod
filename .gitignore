@@ -89,7 +89,11 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+client/dist
+
+# Uploads (user files)
+uploads/*
+!uploads/.gitkeep
 
 # Gatsby files
 .cache/

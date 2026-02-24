@@ -1,3 +1,15 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+RUN npm run build:client
+RUN npx prisma generate
+
 FROM node:20-alpine
 
 WORKDIR /app
@@ -5,12 +17,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY . .
+COPY --from=builder /app/client/dist ./client/dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY server ./server
+COPY prisma ./prisma
+COPY index.js ./
 
-RUN npm run build:client
-
-RUN npx prisma generate
+RUN mkdir -p uploads
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node server/seed.js && node index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node index.js"]

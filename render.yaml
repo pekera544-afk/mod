@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: yoko-ajans
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npx prisma migrate deploy && node index.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
