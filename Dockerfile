@@ -26,6 +26,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY server ./server
 COPY index.js ./
+COPY prisma.config.ts ./
 
 RUN mkdir -p uploads
 
