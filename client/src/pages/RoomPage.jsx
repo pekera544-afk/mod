@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -259,6 +259,8 @@ export default function RoomPage() {
     });
 
     socket.on('you_are_kicked', () => {
+    socket.on('room_chat_cleared', () => setMessages([]));
+
       alert('Oda sahibi tarafından odadan atıldınız.');
       navigate('/');
     });
@@ -494,7 +496,7 @@ export default function RoomPage() {
             </div>
             <div className="absolute top-2 right-2 flex gap-1 pointer-events-none z-10">
               {reactions.map(r => (
-                <div key={r.rid} className="text-xl animate-bounce pointer-events-none">{r.reaction}</div>
+                <div key={r.rid} className="flex flex-col items-center animate-bounce pointer-events-none" style={{gap:'2px'}}><span className="text-xl">{r.reaction}</span><span className="text-white font-semibold rounded px-1" style={{fontSize:'8px',background:'rgba(0,0,0,0.6)',maxWidth:'60px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.username}</span></div>
               ))}
             </div>
           </div>
@@ -532,6 +534,15 @@ export default function RoomPage() {
           <div className="flex-1 overflow-hidden min-h-0">
             {activeTab === 'chat' && (
               <div className="flex flex-col h-full relative">
+              {canModerate && (
+                <div className="flex justify-end px-2 pt-1.5 flex-shrink-0">
+                  <button onClick={() => { if (window.confirm('Sohbeti temizle?')) socketRef.current?.emit('clear_room_chat', { roomId: id }); }}
+                    className="text-xs px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+                    style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>
+                    🗑️ Sohbeti Temizle
+                  </button>
+                </div>
+              )}
                 <div ref={chatScrollRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto p-2 space-y-0.5">
                   {!roomState.chatEnabled && (
                     <div className="text-center text-xs text-gray-500 py-3">

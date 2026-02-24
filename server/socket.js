@@ -1,4 +1,4 @@
-const prisma = require('./db');
+﻿const prisma = require('./db');
 const { verifyToken } = require('./middleware/auth');
 
 const roomParticipants = new Map();
@@ -768,6 +768,15 @@ function setupSocket(io) {
       } catch {}
     });
 
+
+    socket.on('clear_room_chat', async ({ roomId }) => {
+      const key = String(roomId);
+      if (!canControl(socket, key) && socket.user.role !== 'admin') return;
+      try {
+        await prisma.message.updateMany({ where: { roomId: Number(roomId), deletedAt: null }, data: { deletedAt: new Date() } });
+        io.to(key).emit('room_chat_cleared');
+      } catch {}
+    });
     socket.on('room_deleted', async ({ roomId }) => {
       const key = String(roomId);
       if (roomHosts.get(key) !== socket.id) return;
