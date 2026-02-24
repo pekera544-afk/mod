@@ -133,6 +133,4 @@ uploads/*
 .yarn/install-state.gz
 .pnp.*
 
-# Replit debugger
-.breakpoints
 /generated/prisma
