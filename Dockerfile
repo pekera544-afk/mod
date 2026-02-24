@@ -23,10 +23,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/index.js ./
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/start.sh ./
+COPY --from=builder /app/prisma.config.ts ./
 
-RUN chmod +x start.sh && mkdir -p uploads
+RUN mkdir -p uploads
+
+RUN printf '#!/bin/sh\necho ">>> Syncing DB schema..."\nnpx prisma db push --datasource-url "$DATABASE_URL" --accept-data-loss\necho ">>> Starting server..."\nexec node index.js\n' > /app/start.sh && chmod +x /app/start.sh
 
 EXPOSE $PORT
 
-CMD ["sh", "start.sh"]
+CMD ["/bin/sh", "/app/start.sh"]
