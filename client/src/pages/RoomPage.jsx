@@ -259,7 +259,6 @@ export default function RoomPage() {
     });
 
     socket.on('you_are_kicked', () => {
-    socket.on('room_chat_cleared', () => setMessages([]));
 
       alert('Oda sahibi tarafından odadan atıldınız.');
       navigate('/');
@@ -269,6 +268,7 @@ export default function RoomPage() {
       alert(`Bu odadan yasaklandınız.${reason ? ` Sebep: ${reason}` : ''}`);
       navigate('/');
     });
+    socket.on('room_chat_cleared', () => setMessages([]));
 
     socket.on('user_kicked', ({ userId }) => {
       if (user && userId !== user.id) showNotif('Bir kullanıcı odadan atıldı');

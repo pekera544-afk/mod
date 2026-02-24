@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,7 +12,20 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+  const [isIos, setIsIos] = useState(false);
 
+  useEffect(() => {
+    const isPwa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (isPwa) return;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    setIsIos(ios);
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handleInstall = () => { if (!installPrompt) return; installPrompt.prompt(); installPrompt.userChoice.then(() => { setInstallPrompt(null); setShowInstall(false); }); };
   useEffect(() => { document.title = `${t('auth.login')} — ${brand.appTitle}`; }, [t]);
 
   const handleSubmit = async (e) => {
@@ -87,6 +100,21 @@ export default function LoginPage() {
             {t('auth.noAccount')}{' '}
             <Link to="/register" className="text-gold-DEFAULT hover:underline font-semibold">{t('auth.register')}</Link>
           </p>
+          {(showInstall || isIos) && (
+            <div className="mt-5 pt-4 border-t border-gold-DEFAULT/10 text-center">
+              <p className="text-xs text-gray-500 mb-2">Uygulamayı cihazına yükle</p>
+              {showInstall && (
+                <button onClick={handleInstall} className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all" style={{ background: 'rgba(212,175,55,0.15)', color: '#d4af37', border: '1px solid rgba(212,175,55,0.35)' }}>
+                  <span>📲</span> Uygulamayı Yükle (PWA)
+                </button>
+              )}
+              {isIos && !showInstall && (
+                <div className="text-xs text-gray-400 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span>📲</span> Safari'de <strong className="text-gray-300">Paylaş</strong> → <strong className="text-gray-300">Ana Ekrana Ekle</strong>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

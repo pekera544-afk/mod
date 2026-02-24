@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next';
+﻿import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ export default function Navbar({ onMenuClick, socket, notifCounts, setNotifCount
   const [showInstall, setShowInstall] = useState(false);
 
   useEffect(() => {
-    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
+    const isPwa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; if (isPwa) return; const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstall(true); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
