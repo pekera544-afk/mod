@@ -32,4 +32,4 @@ RUN mkdir -p uploads
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node index.js"]
