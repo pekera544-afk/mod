@@ -46,6 +46,16 @@ function ProfileCardContent({ userId, onClose, socket }) {
       .catch(() => {});
   }, [me, userId]);
 
+  useEffect(() => {
+    if (!socket) return;
+    const onFriendError = ({ message }) => {
+      setFriendStatus(null);
+      alert(message);
+    };
+    socket.on('friend_error', onFriendError);
+    return () => socket.off('friend_error', onFriendError);
+  }, [socket]);
+
   function sendFriendRequest() {
     if (!socket || !userId) return;
     socket.emit('friend_request', { toId: userId });

@@ -1,4 +1,4 @@
-﻿const prisma = require('./db');
+const prisma = require('./db');
 const { verifyToken } = require('./middleware/auth');
 
 const roomParticipants = new Map();
@@ -279,15 +279,23 @@ function setupSocket(io) {
     socket.on('friend_request', async ({ toId }) => {
       if (!socket.user.id || !toId) return;
       try {
-        const existing = await prisma.friendRequest.findFirst({
-          where: { OR: [{ fromId: socket.user.id, toId: Number(toId) }, { fromId: Number(toId), toId: socket.user.id }] }
+        const pendingFromMe = await prisma.friendRequest.findFirst({
+          where: { fromId: socket.user.id, toId: Number(toId), status: 'pending' }
         });
-        if (existing) { socket.emit('error', { message: 'Zaten bir istek var' }); return; }
+        if (pendingFromMe) { socket.emit('friend_error', { message: 'Zaten bir istek var' }); return; }
+        const pendingFromThem = await prisma.friendRequest.findFirst({
+          where: { fromId: Number(toId), toId: socket.user.id, status: 'pending' }
+        });
+        if (pendingFromThem) { socket.emit('friend_error', { message: 'Bu kullanici sana zaten istek gonderdi' }); return; }
         const alreadyFriends = await prisma.friendship.findFirst({
           where: { OR: [{ userAId: socket.user.id, userBId: Number(toId) }, { userAId: Number(toId), userBId: socket.user.id }] }
         });
-        if (alreadyFriends) { socket.emit('error', { message: 'Zaten arkadaşsınız' }); return; }
-        await prisma.friendRequest.create({ data: { fromId: socket.user.id, toId: Number(toId) } });
+        if (alreadyFriends) { socket.emit('friend_error', { message: 'Zaten arkadassiniz' }); return; }
+        await prisma.friendRequest.upsert({
+          where: { fromId_toId: { fromId: socket.user.id, toId: Number(toId) } },
+          update: { status: 'pending', createdAt: new Date() },
+          create: { fromId: socket.user.id, toId: Number(toId) }
+        });
         const targetSocketId = userSockets.get(Number(toId));
         if (targetSocketId) {
           io.to(targetSocketId).emit('friend_request_received', {
@@ -316,7 +324,7 @@ function setupSocket(io) {
       try {
         const req = await prisma.friendRequest.findFirst({ where: { fromId: Number(fromId), toId: socket.user.id, status: 'pending' } });
         if (!req) return;
-        await prisma.friendRequest.update({ where: { id: req.id }, data: { status: 'accepted' } });
+        await prisma.friendRequest.delete({ where: { id: req.id } });
         await prisma.friendship.upsert({
           where: { userAId_userBId: { userAId: Math.min(socket.user.id, Number(fromId)), userBId: Math.max(socket.user.id, Number(fromId)) } },
           update: {},
@@ -336,7 +344,7 @@ function setupSocket(io) {
     socket.on('reject_friend', async ({ fromId }) => {
       if (!socket.user.id) return;
       try {
-        await prisma.friendRequest.updateMany({ where: { fromId: Number(fromId), toId: socket.user.id }, data: { status: 'rejected' } });
+        await prisma.friendRequest.deleteMany({ where: { fromId: Number(fromId), toId: socket.user.id } });
         const pending = await prisma.friendRequest.count({ where: { toId: socket.user.id, status: 'pending' } });
         const dmCount = await prisma.directMessage.count({ where: { toId: socket.user.id, read: false } });
         socket.emit('notification_counts', { friendRequests: pending, unreadDMs: dmCount });
