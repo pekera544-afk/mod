@@ -30,4 +30,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "node scripts/init-cp.js && node index.js"]
+CMD ["node", "index.js"]

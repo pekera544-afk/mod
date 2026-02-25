@@ -1,10 +1,85 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { Pool } = require('pg');
+
+async function migrateCp() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode=disable')
+      ? { rejectUnauthorized: false } : false
+  });
+  const client = await pool.connect();
+  try {
+    const q = await client.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'CpRequest') AS has_req,
+        (SELECT COUNT(*)::int FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'CpRelation') AS has_rel,
+        (SELECT COUNT(*)::int FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'CpPrimaryDisplay') AS has_prim,
+        (SELECT COUNT(*)::int FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'CpRequest' AND column_name = 'fromUserId') AS has_col
+    `);
+    const r = q.rows[0];
+    console.log('[CP] DB check:', JSON.stringify(r));
+    if (r.has_req === 1 && r.has_rel === 1 && r.has_prim === 1 && r.has_col === 1) {
+      console.log('[CP] Tables OK, skipping migration.');
+      return;
+    }
+    console.log('[CP] Running migration...');
+    await client.query(`DROP TABLE IF EXISTS "CpPrimaryDisplay" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRelation" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRelationship" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRequest" CASCADE`);
+    await client.query(`DROP TYPE IF EXISTS "CpType" CASCADE`);
+    await client.query(`DROP TYPE IF EXISTS "CpStatus" CASCADE`);
+    await client.query(`CREATE TYPE "CpType" AS ENUM ('SEVGILI','KARI_KOCA','KANKA','ARKADAS','ABLA','ABI','ANNE','BABA')`);
+    await client.query(`CREATE TYPE "CpStatus" AS ENUM ('PENDING','ACCEPTED','REJECTED','CANCELED')`);
+    await client.query(`
+      CREATE TABLE "CpRequest" (
+        "id"         SERIAL PRIMARY KEY,
+        "fromUserId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "toUserId"   INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "type"       "CpType"   NOT NULL,
+        "status"     "CpStatus" NOT NULL DEFAULT 'PENDING',
+        "createdAt"  TIMESTAMP  NOT NULL DEFAULT NOW(),
+        "updatedAt"  TIMESTAMP  NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE "CpRelation" (
+        "id"        SERIAL PRIMARY KEY,
+        "userAId"   INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "userBId"   INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "type"      "CpType" NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+        CONSTRAINT "CpRelation_userAId_userBId_type_key" UNIQUE ("userAId","userBId","type")
+      )
+    `);
+    await client.query(`
+      CREATE TABLE "CpPrimaryDisplay" (
+        "id"           SERIAL PRIMARY KEY,
+        "userId"       INTEGER NOT NULL UNIQUE REFERENCES "User"(id) ON DELETE CASCADE,
+        "cpRelationId" INTEGER NOT NULL REFERENCES "CpRelation"(id) ON DELETE CASCADE
+      )
+    `);
+    await client.query(`ALTER TABLE "User" DROP COLUMN IF EXISTS "cpRequestCount"`);
+    await client.query(`ALTER TABLE "User" DROP COLUMN IF EXISTS "cpLastReset"`);
+    console.log('[CP] Migration complete!');
+  } catch (err) {
+    console.error('[CP] Migration FAILED:', err.message);
+    throw err;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -66,7 +141,7 @@ require('./server/socket')(io);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} kullanımda! Lütfen mevcut süreci kapatın.`);
+    console.error(`Port ${PORT} kullanim da! Lutfen mevcut sureci kapatin.`);
     process.exit(1);
   } else {
     console.error('Server error:', err);
@@ -74,7 +149,14 @@ server.on('error', (err) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`YOKO AJANS server running at http://0.0.0.0:${PORT}`);
-  require('./server/seed')().catch(err => console.error('Seed error:', err.message));
-});
+migrateCp()
+  .then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`YOKO AJANS server running at http://0.0.0.0:${PORT}`);
+      require('./server/seed')().catch(err => console.error('Seed error:', err.message));
+    });
+  })
+  .catch(err => {
+    console.error('[CP] Fatal error during migration, aborting startup:', err.message);
+    process.exit(1);
+  });
