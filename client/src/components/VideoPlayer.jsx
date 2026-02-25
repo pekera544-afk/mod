@@ -462,7 +462,7 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
               <button onClick={applyUrl} className="btn-gold px-4 py-2 text-sm flex-shrink-0">Uygula</button>
               <button onClick={() => setShowUrlInput(false)} className="text-gray-400 hover:text-white px-2 text-sm flex-shrink-0">x</button>
             </div>
-          )
+          )}
         </div>
       )}
     </div>
