@@ -109,12 +109,12 @@ model User {
   roomModsHeld    RoomModerator[]  @relation("ModeratorUser")
   roomBansGiven   RoomBan[]        @relation("BanBanner")
   roomBansHeld    RoomBan[]        @relation("BanUser")
-}
   cpRequestsSent     CpRequest[]        @relation("CpRequestFrom")
   cpRequestsReceived CpRequest[]        @relation("CpRequestTo")
   cpRelationsA       CpRelation[]       @relation("CpRelationA")
   cpRelationsB       CpRelation[]       @relation("CpRelationB")
   cpPrimaryDisplay   CpPrimaryDisplay?
+}
 
 model Room {
   id                    Int              @id @default(autoincrement())
