@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { getIo } = require('../socketRef');
 
 const CP_PRIORITY = ['SEVGILI', 'KARI_KOCA', 'KANKA', 'ARKADAS', 'ABI', 'ABLA', 'ANNE', 'BABA'];
 
@@ -173,6 +174,11 @@ router.post('/respond', requireAuth, async (req, res) => {
       }
     }
 
+    const io2 = getIo();
+    if (io2) {
+      io2.to('user:' + cpReq.fromUserId).to('user:' + cpReq.toUserId).emit('cp_relation_added', { relation });
+    }
+
     res.json({ success: true, relation });
   } catch (err) {
     console.error(err);
@@ -194,8 +200,12 @@ router.delete('/remove', requireAuth, async (req, res) => {
     }
 
     // Clear primary if this was primary for either user
+    const { userAId, userBId } = rel;
     await prisma.cpPrimaryDisplay.deleteMany({ where: { cpRelationId: relId } });
     await prisma.cpRelation.delete({ where: { id: relId } });
+
+    const io = getIo();
+    if (io) io.to('user:' + userAId).to('user:' + userBId).emit('cp_relation_removed', { relationId: relId });
 
     res.json({ success: true });
   } catch (err) {

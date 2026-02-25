@@ -130,6 +130,7 @@ function setupSocket(io) {
   io.on('connection', (socket) => {
     if (socket.user.id) {
       userSockets.set(socket.user.id, socket.id);
+      socket.join('user:' + socket.user.id);
       (async () => {
         try {
           const dbUser = await prisma.user.findUnique({
