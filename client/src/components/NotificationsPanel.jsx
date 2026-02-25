@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import UserProfileCard from './UserProfileCard';
@@ -161,6 +161,22 @@ function DMInbox({ socket, counts, setNotifCounts, onClose }) {
             <div className="text-center text-xs text-gray-600 py-6">
               <div className="text-2xl mb-2">💬</div>
               Henüz mesaj yok
+            </div>
+          )}
+          {tab === 'notifs' && (
+            <div className="overflow-y-auto h-full">
+              {notifList.length===0 ? (
+                <div className="text-center text-gray-600 text-xs py-8">Bildirim yok - etkinlik, PK ve haberler burada gorunur</div>
+              ) : notifList.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 px-4 py-3" style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                  <div className="text-lg">{n.type==='EVENT'?'ETK':n.type==='PK'?'PK':n.type==='NEWS'?'HBR':'DYR'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white">{n.title}</div>
+                    {n.body&&<div className="text-xs text-gray-400">{n.body}</div>}
+                    <div className="text-xs text-gray-600">{new Date(n.createdAt).toLocaleDateString('tr-TR')}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {thread.map(msg => {
@@ -333,6 +349,7 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
   const [friends, setFriends] = useState([]);
   const [tab, setTab] = useState('dms');
   const [cpCount, setCpCount] = useState(0);
+  const [notifList, setNotifList] = useState([]);
   const [profileId, setProfileId] = useState(null);
 
   const token = localStorage.getItem('yoko_token');
@@ -467,6 +484,7 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
               </span>
             )}
           </button>
+          <button onClick={() => { setTab('notifs'); fetch('/api/notifications?limit=30').then(r=>r.json()).then(d=>{if(Array.isArray(d))setNotifList(d);}).catch(()=>{}); if(setNotifCounts)setNotifCounts(p=>({...p,notifications:0})); localStorage.setItem('lastNotifSeen',Date.now().toString()); }} className="flex-1 py-2.5 text-xs font-semibold transition-colors flex items-center justify-center gap-1" style={{ color: tab==='notifs' ? '#a78bfa' : '#6b7280', borderBottom: tab==='notifs' ? '2px solid #a78bfa' : 'none' }}>Bildirimler {(counts?.notifications||0)>0 && <span style={{fontSize:9,background:'rgba(167,139,250,0.2)',color:'#a78bfa',borderRadius:9,padding:'0 4px'}}>{counts.notifications}</span>} </button>
         </div>
 
         <div className="flex-1 overflow-hidden min-h-0">
@@ -538,6 +556,21 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
           {tab === 'cp' && (
             <div className="overflow-y-auto h-full">
               <CpRequestsInbox onCountChange={setCpCount} />
+            </div>
+          )}
+          {tab === 'notifs' && (
+            <div className="overflow-y-auto h-full">
+              {notifList.length===0 ? (
+                <div className="text-center text-gray-600 text-xs py-8">Bildirim yok - etkinlik PK haberler burada gorunur</div>
+              ) : notifList.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 px-4 py-3" style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white">{n.title}</div>
+                    {n.body&&<div className="text-xs text-gray-400">{n.body}</div>}
+                    <div className="text-xs text-gray-600">{new Date(n.createdAt).toLocaleDateString('tr-TR')}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

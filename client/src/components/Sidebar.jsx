@@ -48,6 +48,8 @@ export default function Sidebar({ open, onClose }) {
     { label: '📢 Duyurular', href: '/announcements' },
     { label: '👑 Sıralamalar', href: '/leaderboard' },
     { label: '💎 VIP', href: '/vip' },
+    { label: '🎯 Etkinlikler', href: '/events' },
+    { label: 'VS PK', href: '/pk' },
   ];
 
   if (user.role === 'admin') {

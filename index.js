@@ -81,6 +81,73 @@ async function migrateCp() {
   }
 }
 
+
+async function migrateDb() {
+  const pool2 = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode=disable')
+      ? { rejectUnauthorized: false } : false
+  });
+  const client = await pool2.connect();
+  try {
+    // Marquee columns in Settings
+    await client.query(`ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "marqueeEnabled" BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "marqueeText" TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "marqueeSpeed" INTEGER NOT NULL DEFAULT 50`);
+    await client.query(`ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "marqueeFontSize" INTEGER NOT NULL DEFAULT 14`);
+    await client.query(`ALTER TABLE "Settings" ADD COLUMN IF NOT EXISTS "marqueeColor" TEXT NOT NULL DEFAULT '#d4af37'`);
+
+    // PK enums
+    await client.query(`DO $$ BEGIN CREATE TYPE "PkType" AS ENUM ('KISI','AJANS'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+    await client.query(`DO $$ BEGIN CREATE TYPE "PkStatus" AS ENUM ('UPCOMING','LIVE','ENDED','CANCELED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+
+    // PkMatch
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "PkMatch" (
+        "id"          SERIAL PRIMARY KEY,
+        "title"       TEXT NOT NULL,
+        "type"        "PkType"   NOT NULL DEFAULT 'KISI',
+        "status"      "PkStatus" NOT NULL DEFAULT 'UPCOMING',
+        "startTime"   TIMESTAMP NOT NULL,
+        "description" TEXT NOT NULL DEFAULT '',
+        "teamAName"   TEXT NOT NULL DEFAULT 'Takim A',
+        "teamBName"   TEXT NOT NULL DEFAULT 'Takim B',
+        "createdAt"   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // PkTeamMember
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "PkTeamMember" (
+        "id"        SERIAL PRIMARY KEY,
+        "matchId"   INTEGER NOT NULL REFERENCES "PkMatch"(id) ON DELETE CASCADE,
+        "team"      TEXT NOT NULL CHECK ("team" IN ('A','B')),
+        "name"      TEXT NOT NULL,
+        "userId"    INTEGER REFERENCES "User"(id) ON DELETE SET NULL,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Global Notification
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "Notification" (
+        "id"        SERIAL PRIMARY KEY,
+        "type"      TEXT NOT NULL,
+        "title"     TEXT NOT NULL,
+        "body"      TEXT NOT NULL DEFAULT '',
+        "link"      TEXT NOT NULL DEFAULT '',
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    console.log('[DB] Extended schema migration complete!');
+  } catch (err) {
+    console.error('[DB] Extended migration error:', err.message);
+  } finally {
+    client.release();
+    await pool2.end();
+  }
+}
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -99,6 +166,10 @@ app.use('/api/auth', require('./server/routes/auth'));
 app.use('/api/rooms', require('./server/routes/rooms'));
 app.use('/api/profile', require('./server/routes/profile'));
 app.use('/api/cp', require('./server/routes/cp'));
+app.use('/api/events', require('./server/routes/events'));
+app.use('/api/pk', require('./server/routes/pk'));
+app.use('/api/notifications', require('./server/routes/notifications'));
+app.use('/api/marquee', require('./server/routes/marquee'));
 app.use('/api/news', require('./server/routes/news'));
 app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));
@@ -150,7 +221,7 @@ server.on('error', (err) => {
 });
 
 migrateCp()
-  .then(() => {
+  .then(() => migrateDb()).then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`YOKO AJANS server running at http://0.0.0.0:${PORT}`);
       require('./server/seed')().catch(err => console.error('Seed error:', err.message));

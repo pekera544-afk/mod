@@ -13,6 +13,7 @@ const adminNav = [
   { href: '/admin/news', label: 'Haberler', icon: '📰' },
   { href: '/admin/announcements', label: 'Duyurular', icon: '📢' },
   { href: '/admin/events', label: 'Etkinlikler', icon: '🗓️' },
+  { href: '/admin/pk', label: 'PK Yonetim', icon: 'VS' },
   { href: '/admin/audit-log', label: 'İşlem Geçmişi', icon: '📋' }
 ];
 

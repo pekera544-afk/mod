@@ -22,6 +22,9 @@ import AdminEvents from './pages/admin/AdminEvents';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNews from './pages/admin/AdminNews';
 import AdminCardSettings from './pages/admin/AdminCardSettings';
+import EventsPage from './pages/EventsPage';
+import PkPage from './pages/PkPage';
+import AdminPk from './pages/admin/AdminPk';
 
 function ProtectedAdmin({ children }) {
   const { user, loading } = useAuth();
@@ -35,6 +38,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
+        <Route path="events" element={<EventsPage />} />
+        <Route path="pk" element={<PkPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomPage />} />
         <Route path="news" element={<NewsPage />} />
@@ -55,6 +60,7 @@ export default function App() {
         <Route path="rooms" element={<AdminRooms />} />
         <Route path="announcements" element={<AdminAnnouncements />} />
         <Route path="events" element={<AdminEvents />} />
+            <Route path="pk" element={<AdminPk />} />
         <Route path="audit-log" element={<AdminAuditLog />} />
         <Route path="news" element={<AdminNews />} />
         <Route path="card" element={<AdminCardSettings />} />

@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import FloatingChat from './FloatingChat';
 import LevelUpToast from './LevelUpToast';
 import { useAuth } from '../context/AuthContext';
+import MarqueeBanner from './MarqueeBanner';
 import { getLevelInfo } from './XpBar';
 import { playNotifSound } from '../utils/notifSound';
 
@@ -154,6 +155,27 @@ export default function Layout() {
       playNotifSound('announcement');
     });
 
+    sock.on('new_pk', (data) => {
+      addToast({ type: 'warning', title: 'PK: ' + data.title, subtitle: data.teamAName + ' vs ' + data.teamBName });
+      playNotifSound('event');
+      setNotifCounts(prev => ({ ...prev, notifications: (prev.notifications || 0) + 1 }));
+    });
+
+    sock.on('event_reminder', (data) => {
+      addToast({ type: 'info', title: 'Etkinlik ' + data.minutesLeft + ' dk sonra!', subtitle: data.title });
+      playNotifSound('event');
+    });
+
+    sock.on('pk_reminder', (data) => {
+      addToast({ type: 'info', title: 'PK ' + data.minutesLeft + ' dk sonra!', subtitle: data.title });
+      playNotifSound('event');
+    });
+
+    sock.on('pk_live', (data) => {
+      addToast({ type: 'error', title: 'PK CANLI!', subtitle: data.title });
+      playNotifSound('event');
+    });
+
     sock.on('new_event', (data) => {
       addToast({
         type: 'event',
@@ -197,6 +219,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-cinema-dark relative">
+      <MarqueeBanner />
       <Navbar
         onMenuClick={() => setSidebarOpen(true)}
         socket={socket}

@@ -5,11 +5,13 @@ import { useSettings } from '../../context/SettingsContext';
 export default function AdminSettings() {
   const { refresh } = useSettings();
   const [form, setForm] = useState(null);
+  const [marquee, setMarquee] = useState({ marqueeEnabled: false, marqueeText: '', marqueeSpeed: 50, marqueeFontSize: 16, marqueeColor: '#d4af37' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   const load = () => {
     axios.get('/api/admin/settings').then(r => setForm(r.data)).catch(() => {});
+    axios.get('/api/marquee').then(r => setMarquee(r.data)).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
@@ -21,6 +23,7 @@ export default function AdminSettings() {
     try {
       const { id, updatedAt, heroCardUser, ...data } = form;
       await axios.put('/api/admin/settings', data);
+      await axios.put('/api/marquee', marquee);
       await refresh();
       load();
       setMsg('✅ Ayarlar kaydedildi!');
@@ -153,6 +156,93 @@ export default function AdminSettings() {
               </div>
             ))}
           </div>
+        </div>
+
+
+        <div className="glass-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gold-DEFAULT border-b border-gold-DEFAULT/10 pb-2">
+            📢 Kayan Yazı (Marquee) Ayarları
+          </h3>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div
+              onClick={() => setMarquee(p => ({ ...p, marqueeEnabled: !p.marqueeEnabled }))}
+              className="w-10 h-5 rounded-full relative transition-colors flex-shrink-0"
+              style={{ background: marquee.marqueeEnabled ? '#d4af37' : 'rgba(255,255,255,0.1)' }}>
+              <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                style={{ left: marquee.marqueeEnabled ? '22px' : '2px' }} />
+            </div>
+            <span className="text-xs text-gray-300">Kayan yazıyı etkinleştir</span>
+          </label>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Duyuru Metni</label>
+            <textarea
+              rows={3}
+              value={marquee.marqueeText || ''}
+              onChange={e => setMarquee(p => ({ ...p, marqueeText: e.target.value }))}
+              placeholder="Ekranda kayacak duyuru metnini girin..."
+              className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none resize-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Hız (1-100)</label>
+              <input
+                type="number" min={1} max={100}
+                value={marquee.marqueeSpeed || 50}
+                onChange={e => setMarquee(p => ({ ...p, marqueeSpeed: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Yazı Boyutu (10-32px)</label>
+              <input
+                type="number" min={10} max={32}
+                value={marquee.marqueeFontSize || 16}
+                onChange={e => setMarquee(p => ({ ...p, marqueeFontSize: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded-xl text-white text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Renk</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={marquee.marqueeColor || '#d4af37'}
+                  onChange={e => setMarquee(p => ({ ...p, marqueeColor: e.target.value }))}
+                  className="w-10 h-10 rounded cursor-pointer border-0 p-0 bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={marquee.marqueeColor || '#d4af37'}
+                  onChange={e => setMarquee(p => ({ ...p, marqueeColor: e.target.value }))}
+                  className="flex-1 px-3 py-2 rounded-xl text-white text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}
+                />
+              </div>
+            </div>
+          </div>
+          {marquee.marqueeEnabled && marquee.marqueeText && (
+            <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(212,175,55,0.3)', padding: '8px' }}>
+              <p className="text-xs text-gray-500 mb-1">Önizleme:</p>
+              <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', position: 'relative' }}>
+                <div style={{
+                  display: 'inline-flex',
+                  whiteSpace: 'nowrap',
+                  animation: 'marquee-scroll ' + Math.max(5, (marquee.marqueeText.length * 0.3) * (100 / (marquee.marqueeSpeed || 50))) + 's linear infinite',
+                  fontSize: (marquee.marqueeFontSize || 16) + 'px',
+                  color: marquee.marqueeColor || '#d4af37',
+                  fontWeight: 500,
+                }}>
+                  <span>{marquee.marqueeText}&nbsp;&nbsp;&nbsp;★&nbsp;&nbsp;&nbsp;</span>
+                  <span>{marquee.marqueeText}&nbsp;&nbsp;&nbsp;★&nbsp;&nbsp;&nbsp;</span>
+                </div>
+              </div>
+              <style>{`@keyframes marquee-scroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }`}</style>
+            </div>
+          )}
         </div>
 
         <button type="submit" disabled={saving} className="btn-gold px-8 py-3 disabled:opacity-60">

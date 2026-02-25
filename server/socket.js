@@ -843,6 +843,40 @@ function handleLeaveRoom(socket, key, io) {
   }
 }
 
+
+// Upcoming event/PK reminders - check every 2 minutes
+setInterval(async () => {
+  try {
+    const { Pool } = require('pg');
+    const _p = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('sslmode=disable') ? { rejectUnauthorized: false } : false
+    });
+    const cl = await _p.connect();
+    try {
+      const now = new Date();
+      const in60 = new Date(now.getTime() + 60*60*1000);
+      const in55 = new Date(now.getTime() + 55*60*1000);
+      const evRes = await cl.query(
+        `SELECT id, "titleTR", "startTime" FROM "Event" WHERE "isActive"=true AND "startTime" >= $1 AND "startTime" <= $2`,
+        [in55, in60]
+      );
+      const _io = require('./socketRef').getIo();
+      for (const ev of evRes.rows) {
+        const mins = Math.round((new Date(ev.startTime) - now) / 60000);
+        if (_io) _io.emit('event_reminder', { id: ev.id, title: ev.titleTR, minutesLeft: mins });
+      }
+      const pkRes = await cl.query(
+        `SELECT id, title, "startTime" FROM "PkMatch" WHERE status='UPCOMING' AND "startTime" >= $1 AND "startTime" <= $2`,
+        [in55, in60]
+      );
+      for (const pk of pkRes.rows) {
+        const mins = Math.round((new Date(pk.startTime) - now) / 60000);
+        if (_io) _io.emit('pk_reminder', { id: pk.id, title: pk.title, minutesLeft: mins });
+      }
+    } finally { cl.release(); await _p.end(); }
+  } catch (_e) {}
+}, 2 * 60 * 1000);
 module.exports = setupSocket;
 module.exports.getLiveParticipantCount = getLiveParticipantCount;
 module.exports.getAllLiveCounts = getAllLiveCounts;
