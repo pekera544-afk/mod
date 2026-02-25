@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import GlobalChatPanel from './GlobalChatPanel';
 
 export default function FloatingChat({ socket }) {
   const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/rooms/')) return null;
 
   return (
     <>
