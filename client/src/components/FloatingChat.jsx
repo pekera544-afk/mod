@@ -11,7 +11,7 @@ export default function FloatingChat({ socket }) {
     <>
       <button
         onClick={() => setOpen(o => !o)}
-        className={"fixed z-30 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 " + (isRoomPage ? "bottom-20 left-4" : "bottom-6 right-6")}
+        className={"fixed z-30 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 " + (isRoomPage ? "bottom-[90px] right-3" : "bottom-6 right-6")}
         style={{
           background: open
             ? 'linear-gradient(135deg, #a88a20, #7a640f)'

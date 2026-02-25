@@ -1,98 +1,122 @@
 const router = require('express').Router();
-const axios = require('axios');
+const https = require('https');
 
-// Piped instances (more reliable than Invidious for search)
-const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://piped-api.garudalinux.org',
-];
+// YouTube InnerTube API - YouTube'un kendi internal API'si, key gerektirmez
+function ytSearch(query) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion: '2.20231121.08.00',
+          hl: 'tr',
+          gl: 'TR',
+        },
+      },
+      query: query,
+      params: 'EgIQAQ%3D%3D', // videos only filter
+    });
 
-// Invidious fallback
-const INVIDIOUS_INSTANCES = [
-  'https://invidious.nerdvpn.de',
-  'https://inv.tux.pizza',
-  'https://yt.cdaut.de',
-];
+    const options = {
+      hostname: 'www.youtube.com',
+      path: '/youtubei/v1/search?prettyPrint=false',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': '2.20231121.08.00',
+        'Accept-Language': 'tr-TR,tr;q=0.9',
+        Origin: 'https://www.youtube.com',
+        Referer: 'https://www.youtube.com/',
+      },
+      timeout: 12000,
+    };
 
-async function searchViaPiped(query) {
-  for (const base of PIPED_INSTANCES) {
-    try {
-      const { data } = await axios.get(base + '/search', {
-        params: { q: query, filter: 'videos' },
-        timeout: 8000,
-        headers: { 'User-Agent': 'Mozilla/5.0' },
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json);
+        } catch (e) {
+          reject(new Error('JSON parse failed: ' + e.message));
+        }
       });
-      if (data && Array.isArray(data.items) && data.items.length > 0) {
-        return data.items.filter(v => v.type === 'stream' || v.url).map(v => {
-          const videoId = (v.url || '').replace('/watch?v=', '');
-          return {
-            videoId,
-            title: v.title,
-            author: v.uploaderName || v.channel || '',
-            duration: v.duration || 0,
-            views: v.views || 0,
-            published: v.uploadedDate || '',
-            thumbnail: v.thumbnail || ('https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg'),
-          };
-        }).filter(v => v.videoId);
-      }
-    } catch (e) {
-      console.log('[YouTube search] Piped ' + base + ' failed:', e.message);
-    }
-  }
-  return null;
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.write(body);
+    req.end();
+  });
 }
 
-async function searchViaInvidious(query) {
-  for (const base of INVIDIOUS_INSTANCES) {
-    try {
-      const { data } = await axios.get(base + '/api/v1/search', {
-        params: { q: query, type: 'video' },
-        timeout: 8000,
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      });
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map(v => {
-          const thumb = v.videoThumbnails && v.videoThumbnails.length > 0
-            ? (v.videoThumbnails.find(t => t.quality === 'medium') || v.videoThumbnails[0]).url || ''
-            : '';
-          const thumbUrl = thumb.startsWith('/') ? base + thumb : thumb || ('https://i.ytimg.com/vi/' + v.videoId + '/mqdefault.jpg');
-          return {
-            videoId: v.videoId,
-            title: v.title,
-            author: v.author || '',
-            duration: v.lengthSeconds || 0,
-            views: v.viewCount || 0,
-            published: v.publishedText || '',
-            thumbnail: thumbUrl,
-          };
+function parseResults(json) {
+  const videos = [];
+  try {
+    const sections = json?.contents?.twoColumnSearchResultsRenderer?.primaryContents
+      ?.sectionListRenderer?.contents || [];
+
+    for (const section of sections) {
+      const items = section?.itemSectionRenderer?.contents || [];
+      for (const item of items) {
+        const v = item?.videoRenderer;
+        if (!v || !v.videoId) continue;
+
+        const title = v.title?.runs?.[0]?.text || '';
+        const author = v.ownerText?.runs?.[0]?.text || '';
+        const durationText = v.lengthText?.simpleText || '';
+        const viewText = v.viewCountText?.simpleText || '';
+        const videoId = v.videoId;
+        const thumbnail = 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg';
+
+        // Parse duration string "4:32" or "1:23:45" -> seconds
+        let durationSec = 0;
+        if (durationText) {
+          const parts = durationText.split(':').map(Number);
+          if (parts.length === 2) durationSec = parts[0] * 60 + parts[1];
+          else if (parts.length === 3) durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+
+        videos.push({
+          videoId,
+          title,
+          author,
+          duration: durationSec,
+          durationText,
+          views: viewText,
+          published: v.publishedTimeText?.simpleText || '',
+          thumbnail,
         });
+
+        if (videos.length >= 20) break;
       }
-    } catch (e) {
-      console.log('[YouTube search] Invidious ' + base + ' failed:', e.message);
+      if (videos.length >= 20) break;
     }
+  } catch (e) {
+    console.error('[YouTube search] Parse error:', e.message);
   }
-  return null;
+  return videos;
 }
 
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
   try {
-    // Try Piped first (more reliable)
-    let results = await searchViaPiped(q);
-    // Fallback to Invidious
-    if (!results || results.length === 0) {
-      results = await searchViaInvidious(q);
+    console.log('[YouTube search] Searching:', q);
+    const json = await ytSearch(q);
+    const videos = parseResults(json);
+    console.log('[YouTube search] Found:', videos.length, 'results');
+    if (videos.length === 0) {
+      return res.status(503).json({ error: 'Sonuc bulunamadi veya servis yanit vermedi' });
     }
-    if (!results || results.length === 0) {
-      return res.status(503).json({ error: 'Arama servisi gecici olarak kullanilamiyor. Lutfen tekrar deneyin.' });
-    }
-    res.json(results.slice(0, 20));
+    res.json(videos);
   } catch (err) {
-    console.error('[YouTube search] Fatal:', err.message);
-    res.status(503).json({ error: 'Arama servisi hata verdi', details: err.message });
+    console.error('[YouTube search] Error:', err.message);
+    res.status(503).json({ error: 'Arama servisi gecici olarak kullanilamiyor: ' + err.message });
   }
 });
 
