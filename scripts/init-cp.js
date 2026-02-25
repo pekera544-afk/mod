@@ -9,36 +9,43 @@ const pool = new Pool({
 async function migrateCp() {
   const client = await pool.connect();
   try {
-    // Check if CpRequest table has the new 'fromUserId' column
-    const colCheck = await client.query(`
-      SELECT attname FROM pg_attribute
-      WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'CpRequest' LIMIT 1)
-        AND attname = 'fromUserId' AND attnum > 0
-    `);
+    const t1 = await client.query(`SELECT to_regclass('public."CpRequest"') AS r`);
+    const t2 = await client.query(`SELECT to_regclass('public."CpRelation"') AS r`);
+    const t3 = await client.query(`SELECT to_regclass('public."CpPrimaryDisplay"') AS r`);
 
-    if (colCheck.rows.length > 0) {
-      console.log('[CP] Tables already up-to-date, skipping migration.');
-      return;
+    const allExist = t1.rows[0].r && t2.rows[0].r && t3.rows[0].r;
+    if (allExist) {
+      const colCheck = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = 'CpRequest' AND column_name = 'fromUserId' LIMIT 1`
+      );
+      if (colCheck.rows.length > 0) {
+        console.log('[CP] Tables already up-to-date, skipping migration.');
+        return;
+      }
     }
 
-    console.log('[CP] Migrating CP tables to new schema...');
+    console.log('[CP] Migrating CP tables...');
+
+    await client.query(`DROP TABLE IF EXISTS "CpPrimaryDisplay" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRelation" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRelationship" CASCADE`);
+    await client.query(`DROP TABLE IF EXISTS "CpRequest" CASCADE`);
 
     await client.query(`
-      DROP TABLE IF EXISTS "CpPrimaryDisplay" CASCADE;
-      DROP TABLE IF EXISTS "CpRelation" CASCADE;
-      DROP TABLE IF EXISTS "CpRelationship" CASCADE;
-      DROP TABLE IF EXISTS "CpRequest" CASCADE;
+      DO $$ BEGIN
+        CREATE TYPE "CpType" AS ENUM ('SEVGILI','KARI_KOCA','KANKA','ARKADAS','ABLA','ABI','ANNE','BABA');
+      EXCEPTION WHEN duplicate_object THEN
+        NULL;
+      END $$
     `);
 
-    const typeCheck = await client.query(`SELECT typname FROM pg_type WHERE typname = 'CpType'`);
-    if (typeCheck.rows.length === 0) {
-      await client.query(`CREATE TYPE "CpType" AS ENUM ('SEVGILI','KARI_KOCA','KANKA','ARKADAS','ABLA','ABI','ANNE','BABA')`);
-    }
-
-    const statusCheck = await client.query(`SELECT typname FROM pg_type WHERE typname = 'CpStatus'`);
-    if (statusCheck.rows.length === 0) {
-      await client.query(`CREATE TYPE "CpStatus" AS ENUM ('PENDING','ACCEPTED','REJECTED','CANCELED')`);
-    }
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE "CpStatus" AS ENUM ('PENDING','ACCEPTED','REJECTED','CANCELED');
+      EXCEPTION WHEN duplicate_object THEN
+        NULL;
+      END $$
+    `);
 
     await client.query(`
       CREATE TABLE "CpRequest" (
@@ -62,10 +69,9 @@ async function migrateCp() {
       )
     `);
 
-    await client.query(`
-      CREATE UNIQUE INDEX "CpRelation_unique_idx"
-        ON "CpRelation"("userAId","userBId","type")
-    `);
+    await client.query(
+      `CREATE UNIQUE INDEX "CpRelation_unique_idx" ON "CpRelation"("userAId","userBId","type")`
+    );
 
     await client.query(`
       CREATE TABLE "CpPrimaryDisplay" (
@@ -81,6 +87,7 @@ async function migrateCp() {
     console.log('[CP] Migration complete!');
   } catch (err) {
     console.error('[CP] Migration error:', err.message);
+    process.exit(1);
   } finally {
     client.release();
     await pool.end();
