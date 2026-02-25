@@ -11,6 +11,7 @@ import UserAvatar from '../components/UserAvatar';
 import UserProfileCard from '../components/UserProfileCard';
 import BadgeList, { getUsernameClass, getRoleLabel, getUsernameStyle, LevelBadge } from '../components/RoleBadge';
 import { getBubbleForRole } from '../config/bubblePresets';
+import YouTubeSearch from '../components/YouTubeSearch';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
@@ -420,6 +421,7 @@ export default function RoomPage() {
 
   const tabs = [
     { key: 'chat', label: '💬 Sohbet' },
+    { key: 'search', label: '🔍 Ara' },
     { key: 'participants', label: `👥 (${participants.length})` },
     ...(canControl ? [{ key: 'host', label: isOwner ? '👑 Sahip' : '🛡️ Yönetici' }] : [])
   ];
@@ -644,6 +646,18 @@ export default function RoomPage() {
                     <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {activeTab === 'search' && (
+              <div className="flex flex-col h-full">
+                <YouTubeSearch
+                  canControl={canControl}
+                  onSelect={(url, title) => {
+                    handleUrlChange(url);
+                    socketRef.current?.emit('url_changed', { roomId: id, streamUrl: url, providerType: 'youtube', movieTitle: title });
+                  }}
+                />
               </div>
             )}
 

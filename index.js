@@ -170,6 +170,7 @@ app.use('/api/events', require('./server/routes/events'));
 app.use('/api/pk', require('./server/routes/pk'));
 app.use('/api/notifications', require('./server/routes/notifications'));
 app.use('/api/marquee', require('./server/routes/marquee'));
+app.use('/api/youtube', require('./server/routes/youtube'));
 app.use('/api/news', require('./server/routes/news'));
 app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));

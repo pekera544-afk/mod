@@ -523,7 +523,7 @@ function setupSocket(io) {
       io.to(requesterId).emit('room_state', { ...state, hostConnected: true });
     });
 
-    socket.on('url_changed', async ({ roomId, streamUrl, providerType }) => {
+    socket.on('url_changed', async ({ roomId, streamUrl, providerType, movieTitle }) => {
       const key = String(roomId);
       if (!canControl(socket, key)) return;
       const state = getRoomState(key);
@@ -531,9 +531,10 @@ function setupSocket(io) {
       state.isPlaying = false;
       state.currentTimeSeconds = 0;
       state.lastUpdated = Date.now();
-      io.to(key).emit('url_changed', { streamUrl, providerType });
+      if (movieTitle) state.movieTitle = movieTitle;
+      io.to(key).emit('url_changed', { streamUrl, providerType, movieTitle });
       try {
-        await prisma.room.update({ where: { id: Number(roomId) }, data: { streamUrl, providerType: providerType || 'youtube' } });
+        await prisma.room.update({ where: { id: Number(roomId) }, data: { streamUrl, providerType: providerType || 'youtube', ...(movieTitle ? { movieTitle } : {}) } });
         await prisma.roomState.upsert({
           where: { roomId: Number(roomId) },
           update: { isPlaying: false, currentTimeSeconds: 0, streamUrlVersion: { increment: 1 } },

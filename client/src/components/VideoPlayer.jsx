@@ -152,6 +152,7 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
   const isHostRef = useRef(isHost);
   const onStateChangeRef = useRef(onStateChange);
   const onSeekRef = useRef(onSeek);
+  const onUrlChangeRef = useRef(onUrlChange);
 
   useEffect(() => { roomStateRef.current = roomState; }, [roomState]);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
@@ -196,7 +197,7 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
 
       playerRef.current = new window.YT.Player(div, {
         width: '100%', height: '100%', videoId,
-        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, modestbranding: 1, enablejsapi: 1, origin: window.location.origin },
+        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, playsinline: 1, modestbranding: 1, enablejsapi: 1, origin: window.location.origin, host: 'https://www.youtube-nocookie.com' },
         events: {
           onReady(e) {
             if (destroyedRef.current) return;
@@ -238,6 +239,20 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
             }
           },
           onPlaybackQualityChange() { if (!destroyedRef.current && !document.hidden) applyQuality(); },
+          onError(e) {
+            // 101/150 = video not allowed to play in embedded players
+            if (e.data === 101 || e.data === 150) {
+              console.warn('[YT] Video embed engellendi (hata ' + e.data + '). Invidious proxy deneniyor...');
+              if (!destroyedRef.current && onUrlChangeRef && typeof onUrlChangeRef.current === 'function') {
+                const invUrl = 'https://inv.tux.pizza/watch?v=' + videoId;
+                // Try opening in new tab as fallback
+                const notice = document.createElement('div');
+                notice.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,0.85);z-index:99;color:white;text-align:center;padding:20px;gap:12px;';
+                notice.innerHTML = '<div style="font-size:2rem">⚠️</div><div style="font-size:14px;max-width:280px">Bu video yerlesik oynatmaya izin vermiyor. YouTube uygulamasinda izleyebilirsiniz.</div><a href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank" style="background:#d4af37;color:#0f0f14;padding:8px 20px;border-radius:8px;font-weight:600;text-decoration:none;font-size:13px">YouTube&apos;da Ac</a>';
+                if (mountRef.current) mountRef.current.appendChild(notice);
+              }
+            }
+          },
         },
       });
     });
