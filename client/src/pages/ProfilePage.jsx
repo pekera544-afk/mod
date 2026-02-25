@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOutletContext } from 'react-router-dom';
 import UserAvatar, { FRAME_LIST } from '../components/UserAvatar';
+import CpProfilePair from '../components/CpProfilePair';
 import XpBar from '../components/XpBar';
 import BadgeList, { getUsernameClass, getRoleLabel } from '../components/RoleBadge';
 import { BUBBLE_PRESETS, MOD_BUBBLE_COUNT, ADMIN_BUBBLE_COUNT } from '../config/bubblePresets';
@@ -607,6 +608,9 @@ export default function ProfilePage() {
             {profile.bio && (
               <p className="text-sm text-gray-400 leading-relaxed">{profile.bio}</p>
             )}
+
+            {/* CP / Relationship Display */}
+            <CpProfilePair userId={profile.id} isMe={isMe} profileUser={profile} />
           </div>
 
           {!isMe && me && (

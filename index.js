@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -23,6 +23,7 @@ app.use('/api/settings', require('./server/routes/settings'));
 app.use('/api/auth', require('./server/routes/auth'));
 app.use('/api/rooms', require('./server/routes/rooms'));
 app.use('/api/profile', require('./server/routes/profile'));
+app.use('/api/cp', require('./server/routes/cp'));
 app.use('/api/news', require('./server/routes/news'));
 app.use('/api', require('./server/routes/public'));
 app.use('/api/admin', require('./server/routes/admin'));

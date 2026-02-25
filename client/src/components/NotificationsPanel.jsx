@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import UserProfileCard from './UserProfileCard';
+import CpButton from './CpButton';
+import CpRequestsInbox from './CpRequestsInbox';
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts);
@@ -330,6 +332,7 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
   const [friendRequests, setFriendRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [tab, setTab] = useState('dms');
+  const [cpCount, setCpCount] = useState(0);
   const [profileId, setProfileId] = useState(null);
 
   const token = localStorage.getItem('yoko_token');
@@ -453,6 +456,17 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
               </span>
             )}
           </button>
+          <button
+            onClick={() => setTab('cp')}
+            className="flex-1 py-2.5 text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+            style={{ color: tab === 'cp' ? '#ff6b9d' : '#6b7280', borderBottom: tab === 'cp' ? '2px solid #ff6b9d' : '2px solid transparent' }}>
+            💫 CP
+            {cpCount > 0 && (
+              <span className="rounded-full px-1.5 py-0.5" style={{ fontSize: 9, background: 'rgba(255,107,157,0.2)', color: '#ff6b9d', minWidth: 16, textAlign: 'center' }}>
+                {cpCount}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex-1 overflow-hidden min-h-0">
@@ -512,12 +526,18 @@ export default function NotificationsPanel({ socket, counts, setNotifCounts, onC
                       <div className="text-sm font-semibold text-white truncate hover:underline">{friend.username}</div>
                       {friend.vip && <div className="text-xs" style={{ color: '#c084fc' }}>💎 VIP</div>}
                     </div>
+                    <CpButton friendId={friend.id} />
                     <button onClick={() => removeFriend(friend.id)}
                       className="text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded"
                       title="Arkadaşlıktan Çıkar">✕</button>
                   </div>
                 ))
               )}
+            </div>
+          )}
+          {tab === 'cp' && (
+            <div className="overflow-y-auto h-full">
+              <CpRequestsInbox onCountChange={setCpCount} />
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -110,6 +110,11 @@ model User {
   roomBansGiven   RoomBan[]        @relation("BanBanner")
   roomBansHeld    RoomBan[]        @relation("BanUser")
 }
+  cpRequestsSent     CpRequest[]        @relation("CpRequestFrom")
+  cpRequestsReceived CpRequest[]        @relation("CpRequestTo")
+  cpRelationsA       CpRelation[]       @relation("CpRelationA")
+  cpRelationsB       CpRelation[]       @relation("CpRelationB")
+  cpPrimaryDisplay   CpPrimaryDisplay?
 
 model Room {
   id                    Int              @id @default(autoincrement())
@@ -273,4 +278,54 @@ model News {
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+enum CpType {
+  SEVGILI
+  KARI_KOCA
+  KANKA
+  ARKADAS
+  ABLA
+  ABI
+  ANNE
+  BABA
+}
+
+enum CpStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+model CpRequest {
+  id         Int      @id @default(autoincrement())
+  fromUserId Int
+  toUserId   Int
+  type       CpType
+  status     CpStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  fromUser   User     @relation("CpRequestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("CpRequestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+}
+
+model CpRelation {
+  id            Int                @id @default(autoincrement())
+  userAId       Int
+  userBId       Int
+  type          CpType
+  createdAt     DateTime           @default(now())
+  userA         User               @relation("CpRelationA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User               @relation("CpRelationB", fields: [userBId], references: [id], onDelete: Cascade)
+  primaryForUsers CpPrimaryDisplay[]
+  @@unique([userAId, userBId, type])
+}
+
+model CpPrimaryDisplay {
+  id           Int        @id @default(autoincrement())
+  userId       Int        @unique
+  cpRelationId Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cpRelation   CpRelation @relation(fields: [cpRelationId], references: [id], onDelete: Cascade)
 }

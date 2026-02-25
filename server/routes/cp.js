@@ -1,173 +1,230 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const prisma = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
-const CP_TYPES = ['sevgili', 'kanka', 'arkadas', 'aile'];
-const CP_LABELS = { sevgili: 'Sevgili ❤️', kanka: 'Kanka 🤝', arkadas: 'Arkadaş 👥', aile: 'Aile 👨‍👩‍👧' };
-const MONTHLY_LIMIT_USER = 3;
-const MONTHLY_LIMIT_VIP = 10;
+const CP_PRIORITY = ['SEVGILI', 'KARI_KOCA', 'KANKA', 'ARKADAS', 'ABI', 'ABLA', 'ANNE', 'BABA'];
 
-function resetIfNeeded(user) {
-  const now = new Date();
-  const lastReset = new Date(user.cpLastReset);
-  const monthDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 + (now.getMonth() - lastReset.getMonth());
-  return monthDiff >= 1;
+const USER_SELECT = {
+  id: true, username: true, avatarUrl: true, avatarType: true,
+  role: true, vip: true, level: true, frameType: true
+};
+
+async function areFriends(userAId, userBId) {
+  const a = Math.min(userAId, userBId);
+  const b = Math.max(userAId, userBId);
+  const f = await prisma.friendship.findFirst({
+    where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] }
+  });
+  return !!f;
 }
 
-router.get('/my', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const rel = await prisma.cpRelationship.findFirst({
-      where: { OR: [{ user1Id: userId }, { user2Id: userId }] },
-      include: {
-        user1: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } },
-        user2: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } },
-      }
-    });
-    if (!rel) return res.json(null);
-    const partner = rel.user1Id === userId ? rel.user2 : rel.user1;
-    res.json({ id: rel.id, type: rel.type, label: CP_LABELS[rel.type] || rel.type, partner, createdAt: rel.createdAt });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
+function getMainDisplay(relations, primaryId) {
+  if (!relations || relations.length === 0) return null;
+  const sevgili = relations.find(r => r.type === 'SEVGILI');
+  if (sevgili) return sevgili;
+  if (primaryId) {
+    const primary = relations.find(r => r.id === primaryId);
+    if (primary) return primary;
   }
-});
+  return relations.slice().sort((a, b) =>
+    CP_PRIORITY.indexOf(a.type) - CP_PRIORITY.indexOf(b.type)
+  )[0];
+}
 
-router.get('/user/:userId', async (req, res) => {
+function normalizeRelation(rel, requestingUserId) {
+  const isA = rel.userAId === requestingUserId;
+  return {
+    id: rel.id,
+    type: rel.type,
+    partner: isA ? rel.userB : rel.userA,
+    partnerSide: isA ? 'B' : 'A',
+    createdAt: rel.createdAt
+  };
+}
+
+// GET /api/cp/relations/:userId
+router.get('/relations/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const rel = await prisma.cpRelationship.findFirst({
-      where: { OR: [{ user1Id: userId }, { user2Id: userId }] },
-      include: {
-        user1: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } },
-        user2: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } },
-      }
+    const rawRels = await prisma.cpRelation.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      include: { userA: { select: USER_SELECT }, userB: { select: USER_SELECT } },
+      orderBy: { createdAt: 'asc' }
     });
-    if (!rel) return res.json(null);
-    const partner = rel.user1Id === userId ? rel.user2 : rel.user1;
-    res.json({ id: rel.id, type: rel.type, label: CP_LABELS[rel.type] || rel.type, partner, createdAt: rel.createdAt });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
+
+    const primaryDisplay = await prisma.cpPrimaryDisplay.findUnique({
+      where: { userId }
+    });
+
+    const relations = rawRels.map(r => normalizeRelation(r, userId));
+    const mainDisplay = getMainDisplay(relations, primaryDisplay?.cpRelationId);
+
+    res.json({
+      relations,
+      primaryDisplayRelationId: primaryDisplay?.cpRelationId || null,
+      mainDisplay: mainDisplay || null
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
   }
 });
 
-router.get('/requests/incoming', requireAuth, async (req, res) => {
+// GET /api/cp/requests/inbox
+router.get('/requests/inbox', requireAuth, async (req, res) => {
   try {
     const reqs = await prisma.cpRequest.findMany({
-      where: { receiverId: req.user.id, status: 'pending' },
-      include: { sender: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } } },
+      where: { toUserId: req.user.id, status: 'PENDING' },
+      include: { fromUser: { select: USER_SELECT } },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(reqs.map(r => ({ ...r, label: CP_LABELS[r.type] || r.type })));
-  } catch {
-    res.status(500).json({ error: 'Server error' });
+    res.json(reqs);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
   }
 });
 
+// POST /api/cp/request
 router.post('/request', requireAuth, async (req, res) => {
   try {
-    const senderId = req.user.id;
-    const { receiverId, type } = req.body;
+    const fromUserId = req.user.id;
+    const { toUserId, type } = req.body;
+    const toId = parseInt(toUserId);
 
-    if (!CP_TYPES.includes(type)) return res.status(400).json({ error: 'Geçersiz CP türü' });
-    if (senderId === receiverId) return res.status(400).json({ error: 'Kendinize CP isteği gönderemezsiniz' });
+    if (!CP_PRIORITY.includes(type)) return res.status(400).json({ message: 'Geçersiz CP türü', code: 'INVALID_TYPE' });
+    if (fromUserId === toId) return res.status(400).json({ message: 'Kendinize istek gönderemezsiniz', code: 'SELF_REQUEST' });
 
-    const receiver = await prisma.user.findUnique({ where: { id: receiverId } });
-    if (!receiver) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    const target = await prisma.user.findUnique({ where: { id: toId } });
+    if (!target) return res.status(404).json({ message: 'Kullanıcı bulunamadı', code: 'NOT_FOUND' });
 
-    let sender = await prisma.user.findUnique({ where: { id: senderId } });
+    const friends = await areFriends(fromUserId, toId);
+    if (!friends) return res.status(403).json({ message: 'Sadece arkadaşlarınıza CP isteği gönderebilirsiniz', code: 'NOT_FRIENDS' });
 
-    if (resetIfNeeded(sender)) {
-      sender = await prisma.user.update({
-        where: { id: senderId },
-        data: { cpRequestCount: 0, cpLastReset: new Date() }
-      });
-    }
-
-    const limit = sender.vip ? MONTHLY_LIMIT_VIP : MONTHLY_LIMIT_USER;
-    if (sender.cpRequestCount >= limit) {
-      return res.status(429).json({ error: `Aylık CP isteği hakkınız doldu (${limit})` });
-    }
-
-    const existing = await prisma.cpRequest.findFirst({
-      where: { senderId, receiverId, status: 'pending' }
+    const pending = await prisma.cpRequest.findFirst({
+      where: { fromUserId, toUserId: toId, type, status: 'PENDING' }
     });
-    if (existing) return res.status(409).json({ error: 'Zaten bekleyen bir isteğiniz var' });
+    if (pending) return res.status(409).json({ message: 'Bu türde bekleyen bir isteğiniz zaten var', code: 'DUPLICATE_REQUEST' });
 
-    const senderRel = await prisma.cpRelationship.findFirst({
-      where: { OR: [{ user1Id: senderId }, { user2Id: senderId }] }
+    const aId = Math.min(fromUserId, toId);
+    const bId = Math.max(fromUserId, toId);
+    const existingRel = await prisma.cpRelation.findFirst({
+      where: { userAId: aId, userBId: bId, type }
     });
-    if (senderRel) return res.status(409).json({ error: 'Zaten aktif bir CP ilişkiniz var. Önce mevcut CP ilişkinizi sonlandırın.' });
-
-    const receiverRel = await prisma.cpRelationship.findFirst({
-      where: { OR: [{ user1Id: receiverId }, { user2Id: receiverId }] }
-    });
-    if (receiverRel) return res.status(409).json({ error: 'Bu kullanıcının zaten aktif bir CP ilişkisi var' });
+    if (existingRel) return res.status(409).json({ message: 'Bu tür ilişki zaten mevcut', code: 'RELATION_EXISTS' });
 
     const request = await prisma.cpRequest.create({
-      data: { senderId, receiverId, type },
-      include: { sender: { select: { id: true, username: true, avatarUrl: true, avatarType: true, role: true, vip: true, level: true } } }
+      data: { fromUserId, toUserId: toId, type },
+      include: { fromUser: { select: USER_SELECT }, toUser: { select: USER_SELECT } }
     });
 
-    await prisma.user.update({ where: { id: senderId }, data: { cpRequestCount: { increment: 1 } } });
-
-    res.json({ ...request, label: CP_LABELS[request.type] || request.type });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
+    res.json(request);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
   }
 });
 
-router.post('/request/:id/accept', requireAuth, async (req, res) => {
+// POST /api/cp/respond
+router.post('/respond', requireAuth, async (req, res) => {
   try {
-    const requestId = parseInt(req.params.id);
-    const userId = req.user.id;
+    const { requestId, action } = req.body;
+    const reqId = parseInt(requestId);
 
-    const request = await prisma.cpRequest.findUnique({ where: { id: requestId } });
-    if (!request || request.receiverId !== userId) return res.status(403).json({ error: 'Yetkisiz' });
-    if (request.status !== 'pending') return res.status(400).json({ error: 'İstek artık geçerli değil' });
+    if (!['ACCEPT', 'REJECT'].includes(action)) return res.status(400).json({ message: 'Geçersiz aksiyon', code: 'INVALID_ACTION' });
 
-    const [existA, existB] = await Promise.all([
-      prisma.cpRelationship.findFirst({ where: { OR: [{ user1Id: request.senderId }, { user2Id: request.senderId }] } }),
-      prisma.cpRelationship.findFirst({ where: { OR: [{ user1Id: userId }, { user2Id: userId }] } })
-    ]);
-    if (existA || existB) return res.status(409).json({ error: 'Taraflardan biri zaten aktif bir CP ilişkisinde' });
+    const cpReq = await prisma.cpRequest.findUnique({ where: { id: reqId } });
+    if (!cpReq) return res.status(404).json({ message: 'İstek bulunamadı', code: 'NOT_FOUND' });
+    if (cpReq.toUserId !== req.user.id) return res.status(403).json({ message: 'Yetkisiz', code: 'UNAUTHORIZED' });
+    if (cpReq.status !== 'PENDING') return res.status(400).json({ message: 'İstek artık geçerli değil', code: 'NOT_PENDING' });
 
-    const [rel] = await prisma.$transaction([
-      prisma.cpRelationship.create({ data: { user1Id: request.senderId, user2Id: userId, type: request.type } }),
-      prisma.cpRequest.update({ where: { id: requestId }, data: { status: 'accepted' } }),
-      prisma.cpRequest.updateMany({ where: { OR: [{ senderId: request.senderId }, { senderId: userId }], status: 'pending' }, data: { status: 'rejected' } })
-    ]);
+    if (action === 'REJECT') {
+      await prisma.cpRequest.update({ where: { id: reqId }, data: { status: 'REJECTED' } });
+      return res.json({ success: true });
+    }
 
-    res.json({ success: true, relationship: rel });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    // ACCEPT
+    const aId = Math.min(cpReq.fromUserId, cpReq.toUserId);
+    const bId = Math.max(cpReq.fromUserId, cpReq.toUserId);
 
-router.post('/request/:id/reject', requireAuth, async (req, res) => {
-  try {
-    const requestId = parseInt(req.params.id);
-    const userId = req.user.id;
-
-    const request = await prisma.cpRequest.findUnique({ where: { id: requestId } });
-    if (!request || request.receiverId !== userId) return res.status(403).json({ error: 'Yetkisiz' });
-
-    await prisma.cpRequest.update({ where: { id: requestId }, data: { status: 'rejected' } });
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.delete('/break', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    await prisma.cpRelationship.deleteMany({
-      where: { OR: [{ user1Id: userId }, { user2Id: userId }] }
+    const existingRel = await prisma.cpRelation.findFirst({
+      where: { userAId: aId, userBId: bId, type: cpReq.type }
     });
+    if (existingRel) {
+      await prisma.cpRequest.update({ where: { id: reqId }, data: { status: 'ACCEPTED' } });
+      return res.status(409).json({ message: 'Bu ilişki zaten mevcut', code: 'RELATION_EXISTS' });
+    }
+
+    const [relation] = await prisma.$transaction([
+      prisma.cpRelation.create({ data: { userAId: aId, userBId: bId, type: cpReq.type } }),
+      prisma.cpRequest.update({ where: { id: reqId }, data: { status: 'ACCEPTED' } })
+    ]);
+
+    // Auto-set primary if none exists and no SEVGILI for both users
+    for (const uid of [cpReq.fromUserId, cpReq.toUserId]) {
+      const existing = await prisma.cpPrimaryDisplay.findUnique({ where: { userId: uid } });
+      if (!existing) {
+        const hasSevgili = await prisma.cpRelation.findFirst({
+          where: { OR: [{ userAId: uid }, { userBId: uid }], type: 'SEVGILI' }
+        });
+        if (!hasSevgili || cpReq.type === 'SEVGILI') {
+          await prisma.cpPrimaryDisplay.create({ data: { userId: uid, cpRelationId: relation.id } });
+        }
+      }
+    }
+
+    res.json({ success: true, relation });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
+  }
+});
+
+// DELETE /api/cp/remove
+router.delete('/remove', requireAuth, async (req, res) => {
+  try {
+    const { relationId } = req.body;
+    const relId = parseInt(relationId);
+    const userId = req.user.id;
+
+    const rel = await prisma.cpRelation.findUnique({ where: { id: relId } });
+    if (!rel) return res.status(404).json({ message: 'İlişki bulunamadı', code: 'NOT_FOUND' });
+    if (rel.userAId !== userId && rel.userBId !== userId) {
+      return res.status(403).json({ message: 'Yetkisiz', code: 'UNAUTHORIZED' });
+    }
+
+    // Clear primary if this was primary for either user
+    await prisma.cpPrimaryDisplay.deleteMany({ where: { cpRelationId: relId } });
+    await prisma.cpRelation.delete({ where: { id: relId } });
+
     res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
+  }
+});
+
+// POST /api/cp/primary
+router.post('/primary', requireAuth, async (req, res) => {
+  try {
+    const { relationId } = req.body;
+    const relId = parseInt(relationId);
+    const userId = req.user.id;
+
+    const rel = await prisma.cpRelation.findUnique({ where: { id: relId } });
+    if (!rel) return res.status(404).json({ message: 'İlişki bulunamadı', code: 'NOT_FOUND' });
+    if (rel.userAId !== userId && rel.userBId !== userId) {
+      return res.status(403).json({ message: 'Yetkisiz', code: 'UNAUTHORIZED' });
+    }
+
+    await prisma.cpPrimaryDisplay.upsert({
+      where: { userId },
+      update: { cpRelationId: relId },
+      create: { userId, cpRelationId: relId }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', code: 'SERVER_ERROR' });
   }
 });
 
