@@ -1,4 +1,4 @@
-﻿FROM node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -29,4 +29,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma generate && node index.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma generate && node index.js"]
