@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 
 export const CP_META = {
   SEVGILI:  { emoji: '💗', label: 'Sevgili',   color: '#ff6b9d', anim: 'cp-pulse-pink' },

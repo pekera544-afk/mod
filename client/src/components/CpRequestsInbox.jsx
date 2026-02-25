@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import UserAvatar from './UserAvatar';
 import { CP_META } from './AnimatedRelationshipEmoji';

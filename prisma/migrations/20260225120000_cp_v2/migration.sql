@@ -1,4 +1,4 @@
-﻿-- Drop old CP tables (replaced by new multi-relation system)
+-- Drop old CP tables (replaced by new multi-relation system)
 DROP TABLE IF EXISTS "CpRelationship" CASCADE;
 DROP TABLE IF EXISTS "CpRequest" CASCADE;
 
