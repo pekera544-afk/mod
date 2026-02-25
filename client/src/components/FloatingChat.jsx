@@ -5,13 +5,13 @@ import GlobalChatPanel from './GlobalChatPanel';
 export default function FloatingChat({ socket }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  if (pathname.startsWith('/rooms/')) return null;
+  const isRoomPage = pathname.startsWith('/rooms/');
 
   return (
     <>
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110"
+        className={"fixed z-30 w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 " + (isRoomPage ? "bottom-20 left-4" : "bottom-6 right-6")}
         style={{
           background: open
             ? 'linear-gradient(135deg, #a88a20, #7a640f)'

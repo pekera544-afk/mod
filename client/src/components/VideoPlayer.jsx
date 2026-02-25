@@ -209,7 +209,7 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
             setSeekPos(t);
             applyQuality();
             p.seekTo(t, true);
-            if (s?.isPlaying) p.playVideo(); else p.pauseVideo();
+            if (s?.isPlaying || !s?.hostConnected) p.playVideo(); else p.pauseVideo();
             lastPlayingRef.current = s?.isPlaying ?? false;
             setupMediaSession(movieTitle);
             setPlayerReady(true);
@@ -310,7 +310,10 @@ function YouTubePlayer({ videoId, isHost, roomState, onStateChange, onSeek, onUr
       }
     }
 
-    if (s.isPlaying !== lastPlayingRef.current) {
+    const hostIsOffline = !s.hostConnected;
+    if (hostIsOffline) {
+      if (lastPlayingRef.current !== true) { p.playVideo?.(); lastPlayingRef.current = true; }
+    } else if (s.isPlaying !== lastPlayingRef.current) {
       if (s.isPlaying) p.playVideo?.();
       else p.pauseVideo?.();
       lastPlayingRef.current = s.isPlaying;

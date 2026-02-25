@@ -72,7 +72,7 @@ function PkCard({ match }) {
           {membersA.length > 5 && <div className="text-xs text-gray-500">+{membersA.length - 5} daha</div>}
         </div>
         <div className="flex flex-col items-center gap-1 flex-shrink-0">
-          <span className="text-2xl font-black" style={{ color: '#d4af37' }}>VS</span>
+          <span className="text-2xl font-black" style={{ color: '#d4af37' }}>⚔️ VS ⚔️</span>
           <Countdown startTime={startTime} status={status} />
         </div>
         <div className="flex-1 text-center">
