@@ -22,6 +22,7 @@ COPY --from=builder /app/client/dist ./client/dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/index.js ./
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/prisma.config.ts ./
 
@@ -29,4 +30,4 @@ RUN mkdir -p uploads
 
 EXPOSE $PORT
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma generate && node index.js"]
+CMD ["sh", "-c", "node scripts/init-cp.js && node index.js"]
