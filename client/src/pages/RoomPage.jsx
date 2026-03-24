@@ -436,7 +436,6 @@ export default function RoomPage() {
 
   const tabs = [
     { key: 'chat', label: '💬 Sohbet' },
-    { key: 'cinema', label: '🎬 Koltuklar' },
     { key: 'search', label: '🔍 Ara' },
     { key: 'participants', label: `👥 (${participants.length})` },
     ...(canControl ? [{ key: 'host', label: isOwner ? '👑 Sahip' : '🛡️ Yönetici' }] : [])
@@ -526,6 +525,22 @@ export default function RoomPage() {
               <button key={r} onClick={() => sendReaction(r)}
                 className="text-lg hover:scale-125 transition-transform px-0.5 flex-shrink-0">{r}</button>
             ))}
+          </div>
+
+          {/* Cinema seats */}
+          <div className="flex-shrink-0 overflow-y-auto" style={{ maxHeight: '340px' }}>
+            <CinemaSeats
+              cinemaState={cinemaState}
+              socket={socketRef.current}
+              roomId={id}
+              currentUser={user}
+              isOwner={isOwner}
+              participants={participants}
+              speakingUsers={speakingUsers}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              micError={micError}
+            />
           </div>
         </div>
 
@@ -673,23 +688,6 @@ export default function RoomPage() {
                     handleUrlChange(url);
                     socketRef.current?.emit('url_changed', { roomId: id, streamUrl: url, providerType: 'youtube', movieTitle: title });
                   }}
-                />
-              </div>
-            )}
-
-            {activeTab === 'cinema' && (
-              <div className="overflow-y-auto h-full">
-                <CinemaSeats
-                  cinemaState={cinemaState}
-                  socket={socketRef.current}
-                  roomId={id}
-                  currentUser={user}
-                  isOwner={isOwner}
-                  participants={participants}
-                  speakingUsers={speakingUsers}
-                  isMuted={isMuted}
-                  onToggleMute={toggleMute}
-                  micError={micError}
                 />
               </div>
             )}
