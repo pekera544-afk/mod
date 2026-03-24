@@ -65,6 +65,17 @@ export default function AdminRooms() {
     }
   };
 
+  const [fakeViewers, setFakeViewerState] = useState({});
+
+  const setFakeViewersForRoom = async (id, count) => {
+    try {
+      await axios.put(`/api/admin/rooms/${id}/fake-viewers`, { count: Number(count) });
+      setFakeViewerState(p => ({ ...p, [id]: count }));
+      setMsg('İzleyici sayısı güncellendi');
+      setTimeout(() => setMsg(''), 2000);
+    } catch { setMsg('Hata oluştu'); }
+  };
+
   const providerLabel = { youtube: '▶ YouTube', external: '🔗 Harici' };
 
   return (
@@ -193,6 +204,21 @@ export default function AdminRooms() {
               <div className="text-xs text-gray-600 mt-0.5 truncate">{room.streamUrl || 'URL yok'}</div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 10, color: '#9ca3af' }}>👁</span>
+                <input
+                  type="number"
+                  min={0}
+                  defaultValue={fakeViewers[room.id] ?? 0}
+                  onBlur={e => setFakeViewersForRoom(room.id, e.target.value)}
+                  style={{
+                    width: 52, padding: '2px 6px', borderRadius: 8, fontSize: 11,
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)',
+                    color: '#d4af37', outline: 'none', textAlign: 'center'
+                  }}
+                  title="Sahte izleyici sayısı"
+                />
+              </div>
               <button onClick={() => openEdit(room)} className="btn-outline-gold text-xs px-3 py-1.5">Düzenle</button>
               <button onClick={() => del(room.id)} className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-400/20 hover:bg-red-500/20 transition-colors">Sil</button>
             </div>
