@@ -12,6 +12,27 @@ const globalChatParticipants = new Map();
 const dmSpamTracker = new Map();
 const roomDbWriteTime = new Map();
 const roomCinemaSeats = new Map();
+const roomBotActive = new Map();   // key -> true when bot is hosting
+const roomFakeViewers = new Map(); // key -> number (admin-set fake viewer count)
+
+const BOT_PARTICIPANTS = [
+  { id: -1, username: '🤖 KontrolBot-1', role: 'admin', vip: false, isBot: true, isOwner: true, level: 99, avatarType: 'emoji', avatarEmoji: '🤖' },
+  { id: -2, username: '🤖 KontrolBot-2', role: 'admin', vip: false, isBot: true, isOwner: true, level: 99, avatarType: 'emoji', avatarEmoji: '🤖' },
+];
+
+function setFakeViewers(roomId, count) {
+  roomFakeViewers.set(String(roomId), Number(count) || 0);
+}
+
+function broadcastParticipants(key, io) {
+  const realParticipants = roomParticipants.has(key)
+    ? Array.from(roomParticipants.get(key).values())
+    : [];
+  const fakeCount = roomFakeViewers.get(key) || 0;
+  const full = [...realParticipants, ...BOT_PARTICIPANTS];
+  io.to(key).emit('participants', full);
+  io.to(key).emit('viewer_count', { count: realParticipants.length + BOT_PARTICIPANTS.length + fakeCount });
+}
 
 function getLiveParticipantCount(roomId) {
   const map = roomParticipants.get(String(roomId));
@@ -437,7 +458,7 @@ function setupSocket(io) {
         };
         roomParticipants.get(key).set(socket.id, participant);
 
-        io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+        broadcastParticipants(key, io);
 
         const state = getRoomState(key);
         socket.emit('room_state', {
@@ -452,6 +473,11 @@ function setupSocket(io) {
         }
 
         socket.emit('cinema_seats_update', getCinemaState(key));
+
+        // Send current viewer count to the new joiner
+        const fakeCount = roomFakeViewers.get(key) || 0;
+        const realCount = roomParticipants.has(key) ? roomParticipants.get(key).size : 0;
+        socket.emit('viewer_count', { count: realCount + BOT_PARTICIPANTS.length + fakeCount });
       } catch (err) {
         console.error('join_room error:', err);
       }
@@ -468,10 +494,11 @@ function setupSocket(io) {
         if (!isOwner && !isAdmin) return;
 
         const oldHostId = roomHosts.get(key);
-        if (oldHostId && oldHostId !== socket.id) {
+        if (oldHostId && oldHostId !== socket.id && !oldHostId.startsWith('__bot__')) {
           io.to(oldHostId).emit('host_taken');
         }
         roomHosts.set(key, socket.id);
+        roomBotActive.delete(key);
         socket.emit('host_granted', { roomId });
         io.to(key).emit('host_changed', { username: socket.user.username, hostConnected: true });
 
@@ -482,7 +509,7 @@ function setupSocket(io) {
         if (roomParticipants.has(key)) {
           const p = roomParticipants.get(key).get(socket.id);
           if (p) { p.isOwner = true; roomParticipants.get(key).set(socket.id, p); }
-          io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+          broadcastParticipants(key, io);
         }
       } catch (err) { console.error('claim_host error:', err); }
     });
@@ -525,10 +552,19 @@ function setupSocket(io) {
     socket.on('player_sync_request', ({ roomId }) => {
       const key = String(roomId);
       const hostId = roomHosts.get(key);
-      if (hostId) {
-        io.to(hostId).emit('player_sync_request', { requesterId: socket.id, roomId });
-      } else {
+      if (!hostId) {
         socket.emit('room_state', { ...getRoomState(key), hostConnected: false });
+      } else if (hostId.startsWith('__bot__')) {
+        // Bot responds directly: advance time if playing
+        const state = getRoomState(key);
+        if (state.isPlaying && state.lastUpdated) {
+          const elapsed = (Date.now() - state.lastUpdated) / 1000;
+          state.currentTimeSeconds = (state.currentTimeSeconds || 0) + elapsed;
+          state.lastUpdated = Date.now();
+        }
+        socket.emit('room_state', { ...state, hostConnected: true, isHost: false });
+      } else {
+        io.to(hostId).emit('player_sync_request', { requesterId: socket.id, roomId });
       }
     });
 
@@ -608,7 +644,7 @@ function setupSocket(io) {
           io.to(targetSocketId).emit('moderator_granted', { roomId });
         }
         io.to(key).emit('moderator_assigned', { userId: targetUserId });
-        io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+        broadcastParticipants(key, io);
       } catch (err) { console.error('assign_moderator error:', err); }
     });
 
@@ -627,7 +663,7 @@ function setupSocket(io) {
           io.to(targetSocketId).emit('moderator_removed', { roomId });
         }
         io.to(key).emit('moderator_removed_broadcast', { userId: targetUserId });
-        io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+        broadcastParticipants(key, io);
       } catch (err) { console.error('remove_moderator error:', err); }
     });
 
@@ -666,7 +702,7 @@ function setupSocket(io) {
           }
         }
         io.to(key).emit('user_banned', { userId: targetUserId });
-        io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+        broadcastParticipants(key, io);
       } catch (err) { console.error('ban_user error:', err); }
     });
 
@@ -900,6 +936,13 @@ function setupSocket(io) {
       io.to(targetSocketId).emit('webrtc_ice', { fromSocketId: socket.id, candidate });
     });
 
+    socket.on('admin_set_fake_viewers', ({ roomId, count }) => {
+      if (socket.user.role !== 'admin') return;
+      const key = String(roomId);
+      setFakeViewers(key, count);
+      broadcastParticipants(key, io);
+    });
+
     socket.on('disconnect', () => {
       if (socket.user.id && userSockets.get(socket.user.id) === socket.id) {
         userSockets.delete(socket.user.id);
@@ -917,7 +960,7 @@ function setupSocket(io) {
 function handleLeaveRoom(socket, key, io) {
   if (roomParticipants.has(key)) {
     roomParticipants.get(key).delete(socket.id);
-    io.to(key).emit('participants', Array.from(roomParticipants.get(key).values()));
+    broadcastParticipants(key, io);
   }
   if (roomModerators.has(key)) {
     roomModerators.get(key).delete(socket.id);
@@ -939,7 +982,7 @@ function handleLeaveRoom(socket, key, io) {
     }
   }
   if (roomHosts.get(key) === socket.id) {
-    roomHosts.delete(key);
+    // Save current video time
     const state = getRoomState(key);
     if (state.isPlaying && state.lastUpdated) {
       const elapsed = (Date.now() - state.lastUpdated) / 1000;
@@ -951,10 +994,12 @@ function handleLeaveRoom(socket, key, io) {
         create: { roomId: Number(key), isPlaying: true, currentTimeSeconds: state.currentTimeSeconds }
       }).catch(() => {});
     }
-    io.to(key).emit('host_changed', {
-      hostConnected: false,
-      currentTimeSeconds: state.currentTimeSeconds,
-    });
+    // Bot takes over seamlessly – do NOT emit host_changed: false
+    const botId = '__bot__' + key;
+    roomHosts.set(key, botId);
+    roomBotActive.set(key, true);
+    // Notify room that bot host is still active
+    io.to(key).emit('host_changed', { hostConnected: true, username: '🤖 KontrolBot', currentTimeSeconds: state.currentTimeSeconds });
   }
 }
 
@@ -995,3 +1040,4 @@ setInterval(async () => {
 module.exports = setupSocket;
 module.exports.getLiveParticipantCount = getLiveParticipantCount;
 module.exports.getAllLiveCounts = getAllLiveCounts;
+module.exports.setFakeViewers = setFakeViewers;
