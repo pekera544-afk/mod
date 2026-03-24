@@ -12,6 +12,8 @@ import UserProfileCard from '../components/UserProfileCard';
 import BadgeList, { getUsernameClass, getRoleLabel, getUsernameStyle, LevelBadge } from '../components/RoleBadge';
 import { getBubbleForRole } from '../config/bubblePresets';
 import YouTubeSearch from '../components/YouTubeSearch';
+import CinemaSeats from '../components/CinemaSeats';
+import useVoiceChat from '../hooks/useVoiceChat';
 
 const REACTIONS = ['❤️', '🔥', '😂', '👏', '😮', '💎', '🎬', '⭐'];
 
@@ -140,12 +142,20 @@ export default function RoomPage() {
   const [replyTo, setReplyTo] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [cinemaState, setCinemaState] = useState({ mode: 'friends_2', seats: [] });
 
   const socketRef = useRef(null);
+  const [socketReady, setSocketReady] = useState(null);
   const chatEndRef = useRef(null);
   const chatScrollRef = useRef(null);
   const spamTimerRef = useRef(null);
   const roomStateRef = useRef(roomState);
+
+  const amSeated = cinemaState.seats.some(s => s.userId === user?.id);
+  const { isMuted, toggleMute, speakingUsers, micError } = useVoiceChat({
+    socket: socketReady,
+    isSeated: amSeated
+  });
 
   const showNotif = (msg, duration = 3000) => {
     setNotification(msg);
@@ -175,6 +185,7 @@ export default function RoomPage() {
 
     const socket = io({ auth: { token } });
     socketRef.current = socket;
+    setSocketReady(socket);
 
     socket.on('connect', () => {
       socket.emit('join_room', id);
@@ -271,6 +282,9 @@ export default function RoomPage() {
     });
     socket.on('room_chat_cleared', () => setMessages([]));
 
+    socket.on('cinema_seats_update', (state) => setCinemaState(state));
+    socket.on('cinema_removed_from_seat', () => showNotif('Koltuğunuzdan kaldırıldınız'));
+
     socket.on('user_kicked', ({ userId }) => {
       if (user && userId !== user.id) showNotif('Bir kullanıcı odadan atıldı');
     });
@@ -297,6 +311,7 @@ export default function RoomPage() {
     return () => {
       socket.emit('leave_room', id);
       socket.disconnect();
+      setSocketReady(null);
     };
   }, [id, token, user, unlocked, room?.ownerId]);
 
@@ -421,6 +436,7 @@ export default function RoomPage() {
 
   const tabs = [
     { key: 'chat', label: '💬 Sohbet' },
+    { key: 'cinema', label: '🎬 Koltuklar' },
     { key: 'search', label: '🔍 Ara' },
     { key: 'participants', label: `👥 (${participants.length})` },
     ...(canControl ? [{ key: 'host', label: isOwner ? '👑 Sahip' : '🛡️ Yönetici' }] : [])
@@ -657,6 +673,23 @@ export default function RoomPage() {
                     handleUrlChange(url);
                     socketRef.current?.emit('url_changed', { roomId: id, streamUrl: url, providerType: 'youtube', movieTitle: title });
                   }}
+                />
+              </div>
+            )}
+
+            {activeTab === 'cinema' && (
+              <div className="overflow-y-auto h-full">
+                <CinemaSeats
+                  cinemaState={cinemaState}
+                  socket={socketRef.current}
+                  roomId={id}
+                  currentUser={user}
+                  isOwner={isOwner}
+                  participants={participants}
+                  speakingUsers={speakingUsers}
+                  isMuted={isMuted}
+                  onToggleMute={toggleMute}
+                  micError={micError}
                 />
               </div>
             )}
