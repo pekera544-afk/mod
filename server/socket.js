@@ -11,6 +11,7 @@ const userSockets = new Map();
 const globalChatParticipants = new Map();
 const dmSpamTracker = new Map();
 const roomDbWriteTime = new Map();
+const roomCinemaSeats = new Map();
 
 function getLiveParticipantCount(roomId) {
   const map = roomParticipants.get(String(roomId));
@@ -66,6 +67,21 @@ function canControl(socket, key) {
 }
 
 function isModOrOwner(socket, key) { return canControl(socket, key); }
+
+function getSeatCount(mode) {
+  const c = { couple: 2, friends_2: 2, friends_3: 3, friends_4: 4, friends_6: 6 };
+  return c[mode] || 2;
+}
+function makeSeatList(count) {
+  return Array.from({ length: count }, (_, i) => ({ idx: i, userId: null, username: null, socketId: null, avatarUrl: '' }));
+}
+function getCinemaState(roomId) {
+  const key = String(roomId);
+  if (!roomCinemaSeats.has(key)) {
+    roomCinemaSeats.set(key, { mode: 'friends_2', seats: makeSeatList(2) });
+  }
+  return roomCinemaSeats.get(key);
+}
 
 function userPublicData(user) {
   // Check frame expiry
@@ -434,6 +450,8 @@ function setupSocket(io) {
         if (isModerator) {
           socket.emit('moderator_granted', { roomId });
         }
+
+        socket.emit('cinema_seats_update', getCinemaState(key));
       } catch (err) {
         console.error('join_room error:', err);
       }
@@ -802,6 +820,86 @@ function setupSocket(io) {
       } catch (err) { console.error('Delete room error:', err); }
     });
 
+    // ── CINEMA SEATS ──────────────────────────────────────────────────────────
+    socket.on('cinema_set_mode', ({ roomId, mode }) => {
+      const key = String(roomId);
+      if (roomHosts.get(key) !== socket.id) return;
+      const validModes = ['couple', 'friends_2', 'friends_3', 'friends_4', 'friends_6'];
+      if (!validModes.includes(mode)) return;
+      const count = getSeatCount(mode);
+      const state = { mode, seats: makeSeatList(count) };
+      roomCinemaSeats.set(key, state);
+      io.to(key).emit('cinema_seats_update', state);
+    });
+
+    socket.on('cinema_take_seat', ({ roomId, seatIdx }) => {
+      const key = String(roomId);
+      if (!socket.user.id) return;
+      const state = getCinemaState(key);
+      // Remove from any existing seat first
+      state.seats.forEach(s => {
+        if (s.socketId === socket.id) {
+          s.userId = null; s.username = null; s.socketId = null; s.avatarUrl = '';
+        }
+      });
+      const seat = state.seats[seatIdx];
+      if (!seat || seat.userId !== null) return;
+      seat.userId = socket.user.id;
+      seat.username = socket.user.username;
+      seat.socketId = socket.id;
+      seat.avatarUrl = socket.user.avatarUrl || '';
+      io.to(key).emit('cinema_seats_update', state);
+      // Tell other seated sockets to initiate WebRTC with the new arrival
+      state.seats.forEach(s => {
+        if (s.socketId && s.socketId !== socket.id) {
+          io.to(s.socketId).emit('webrtc_new_peer', { socketId: socket.id, userId: socket.user.id });
+        }
+      });
+    });
+
+    socket.on('cinema_leave_seat', ({ roomId }) => {
+      const key = String(roomId);
+      const state = getCinemaState(key);
+      const prevSocketIds = state.seats.filter(s => s.socketId && s.socketId !== socket.id).map(s => s.socketId);
+      state.seats.forEach(s => {
+        if (s.socketId === socket.id) {
+          s.userId = null; s.username = null; s.socketId = null; s.avatarUrl = '';
+        }
+      });
+      io.to(key).emit('cinema_seats_update', state);
+      prevSocketIds.forEach(sid => io.to(sid).emit('webrtc_peer_left', { socketId: socket.id }));
+    });
+
+    socket.on('cinema_remove_user', ({ roomId, seatIdx }) => {
+      const key = String(roomId);
+      if (!isModOrOwner(socket, key)) return;
+      const state = getCinemaState(key);
+      const seat = state.seats[seatIdx];
+      if (!seat || !seat.userId) return;
+      const removedSocketId = seat.socketId;
+      seat.userId = null; seat.username = null; seat.socketId = null; seat.avatarUrl = '';
+      io.to(key).emit('cinema_seats_update', state);
+      if (removedSocketId) {
+        io.to(removedSocketId).emit('cinema_removed_from_seat');
+        state.seats.forEach(s => {
+          if (s.socketId) io.to(s.socketId).emit('webrtc_peer_left', { socketId: removedSocketId });
+        });
+      }
+    });
+
+    // ── WEBRTC SIGNALING ─────────────────────────────────────────────────────
+    socket.on('webrtc_offer', ({ targetSocketId, offer }) => {
+      io.to(targetSocketId).emit('webrtc_offer', { fromSocketId: socket.id, offer });
+    });
+
+    socket.on('webrtc_answer', ({ targetSocketId, answer }) => {
+      io.to(targetSocketId).emit('webrtc_answer', { fromSocketId: socket.id, answer });
+    });
+
+    socket.on('webrtc_ice', ({ targetSocketId, candidate }) => {
+      io.to(targetSocketId).emit('webrtc_ice', { fromSocketId: socket.id, candidate });
+    });
+
     socket.on('disconnect', () => {
       if (socket.user.id && userSockets.get(socket.user.id) === socket.id) {
         userSockets.delete(socket.user.id);
@@ -823,6 +921,22 @@ function handleLeaveRoom(socket, key, io) {
   }
   if (roomModerators.has(key)) {
     roomModerators.get(key).delete(socket.id);
+  }
+  // Remove from cinema seats
+  if (roomCinemaSeats.has(key)) {
+    const cinemaState = roomCinemaSeats.get(key);
+    let changed = false;
+    const prevSocketIds = cinemaState.seats.filter(s => s.socketId && s.socketId !== socket.id).map(s => s.socketId);
+    cinemaState.seats.forEach(s => {
+      if (s.socketId === socket.id) {
+        s.userId = null; s.username = null; s.socketId = null; s.avatarUrl = '';
+        changed = true;
+      }
+    });
+    if (changed) {
+      io.to(key).emit('cinema_seats_update', cinemaState);
+      prevSocketIds.forEach(sid => io.to(sid).emit('webrtc_peer_left', { socketId: socket.id }));
+    }
   }
   if (roomHosts.get(key) === socket.id) {
     roomHosts.delete(key);
