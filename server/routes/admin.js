@@ -143,7 +143,10 @@ router.delete('/users/:id', async (req, res) => {
 
 router.get('/rooms', async (req, res) => {
   try {
-    const rooms = await prisma.room.findMany({ orderBy: { createdAt: 'desc' } });
+    const rooms = await prisma.room.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' }
+    });
     res.json(rooms);
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -182,10 +185,19 @@ router.put('/rooms/:id', async (req, res) => {
 
 router.delete('/rooms/:id', async (req, res) => {
   try {
-    await prisma.room.delete({ where: { id: Number(req.params.id) } });
-    await logAction(req.user.id, 'DELETE_ROOM', `Room#${req.params.id}`);
+    const room = await prisma.room.findFirst({
+      where: { id: Number(req.params.id), deletedAt: null }
+    });
+    if (!room) return res.status(404).json({ error: 'Oda bulunamadı' });
+    await prisma.room.update({
+      where: { id: Number(req.params.id) },
+      data: { deletedAt: new Date(), isActive: false }
+    });
+    const io = getIo();
+    if (io) io.to(String(req.params.id)).emit('room_deleted', { roomId: Number(req.params.id) });
+    await logAction(req.user.id, 'DELETE_ROOM', `Room#${req.params.id}`, room.title);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.get('/announcements', async (req, res) => {
