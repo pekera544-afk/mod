@@ -143,6 +143,7 @@ export default function RoomPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [cinemaState, setCinemaState] = useState({ mode: 'friends_2', seats: [] });
+  const [viewerCount, setViewerCount] = useState(0);
 
   const socketRef = useRef(null);
   const [socketReady, setSocketReady] = useState(null);
@@ -284,6 +285,7 @@ export default function RoomPage() {
 
     socket.on('cinema_seats_update', (state) => setCinemaState(state));
     socket.on('cinema_removed_from_seat', () => showNotif('Koltuğunuzdan kaldırıldınız'));
+    socket.on('viewer_count', ({ count }) => setViewerCount(count));
 
     socket.on('user_kicked', ({ userId }) => {
       if (user && userId !== user.id) showNotif('Bir kullanıcı odadan atıldı');
@@ -437,7 +439,7 @@ export default function RoomPage() {
   const tabs = [
     { key: 'chat', label: '💬 Sohbet' },
     { key: 'search', label: '🔍 Ara' },
-    { key: 'participants', label: `👥 (${participants.length})` },
+    { key: 'participants', label: `👥 (${viewerCount || participants.length})` },
     ...(canControl ? [{ key: 'host', label: isOwner ? '👑 Sahip' : '🛡️ Yönetici' }] : [])
   ];
 
