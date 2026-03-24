@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { requireAdmin } = require('../middleware/auth');
+const { setFakeViewers } = require('../socket');
 const { getIo } = require('../socketRef');
 
 async function logAction(adminId, action, target, detail = '') {
@@ -198,6 +199,15 @@ router.delete('/rooms/:id', async (req, res) => {
     await logAction(req.user.id, 'DELETE_ROOM', `Room#${req.params.id}`, room.title);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.put('/rooms/:id/fake-viewers', async (req, res) => {
+  try {
+    const { count } = req.body;
+    setFakeViewers(req.params.id, count);
+    await logAction(req.user.id, 'SET_FAKE_VIEWERS', `Room#${req.params.id}`, String(count));
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 router.get('/announcements', async (req, res) => {
