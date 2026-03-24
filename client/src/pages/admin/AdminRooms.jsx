@@ -54,8 +54,15 @@ export default function AdminRooms() {
 
   const del = async (id) => {
     if (!window.confirm('Odayı silmek istediğinizden emin misiniz?')) return;
-    await axios.delete(`/api/admin/rooms/${id}`);
-    load();
+    try {
+      await axios.delete(`/api/admin/rooms/${id}`);
+      setMsg('Oda silindi');
+      setTimeout(() => setMsg(''), 2000);
+      load();
+    } catch (err) {
+      setMsg('Hata: ' + (err.response?.data?.error || 'Silinemedi'));
+      setTimeout(() => setMsg(''), 3000);
+    }
   };
 
   const providerLabel = { youtube: '▶ YouTube', external: '🔗 Harici' };
