@@ -416,14 +416,19 @@ function setupSocket(io) {
 
         if (dbState) {
           const state = getRoomState(key);
-          state.isPlaying = dbState.isPlaying;
-          let savedTime = dbState.currentTimeSeconds || 0;
-          if (dbState.isPlaying && dbState.lastUpdatedAt && !roomHosts.has(key)) {
-            const elapsed = (Date.now() - new Date(dbState.lastUpdatedAt).getTime()) / 1000;
-            savedTime = savedTime + elapsed;
+          // Don't overwrite in-memory state if bot/host is actively managing it
+          const hasLiveState = roomHosts.has(key) && state.lastUpdated && (Date.now() - state.lastUpdated < 60000);
+          if (!hasLiveState) {
+            state.isPlaying = dbState.isPlaying;
+            let savedTime = dbState.currentTimeSeconds || 0;
+            // Always advance time from DB if video was playing
+            if (dbState.isPlaying && dbState.lastUpdatedAt) {
+              const elapsed = (Date.now() - new Date(dbState.lastUpdatedAt).getTime()) / 1000;
+              savedTime = savedTime + elapsed;
+            }
+            state.currentTimeSeconds = savedTime;
+            state.lastUpdated = Date.now();
           }
-          state.currentTimeSeconds = savedTime;
-          if (!state.lastUpdated) state.lastUpdated = Date.now();
           state.streamUrl = room.streamUrl;
           state.movieTitle = room.movieTitle;
           state.chatEnabled = room.chatEnabled;
@@ -461,6 +466,12 @@ function setupSocket(io) {
         broadcastParticipants(key, io);
 
         const state = getRoomState(key);
+        // If bot is hosting, advance video time before sending to new joiner
+        if (roomBotActive.get(key) && state.isPlaying && state.lastUpdated) {
+          const elapsed = (Date.now() - state.lastUpdated) / 1000;
+          state.currentTimeSeconds = (state.currentTimeSeconds || 0) + elapsed;
+          state.lastUpdated = Date.now();
+        }
         socket.emit('room_state', {
           ...state,
           hostConnected: roomHosts.has(key),
@@ -1005,6 +1016,23 @@ function handleLeaveRoom(socket, key, io) {
 
 
 // Upcoming event/PK reminders - check every 2 minutes
+setInterval(async () => {
+  // Bot hosting rooms: advance time and save to DB every 30 seconds
+  for (const [key, isActive] of roomBotActive) {
+    if (!isActive) continue;
+    const state = getRoomState(key);
+    if (state.isPlaying && state.lastUpdated) {
+      const elapsed = (Date.now() - state.lastUpdated) / 1000;
+      state.currentTimeSeconds = (state.currentTimeSeconds || 0) + elapsed;
+      state.lastUpdated = Date.now();
+      prisma.roomState.upsert({
+        where: { roomId: Number(key) },
+        update: { currentTimeSeconds: state.currentTimeSeconds, isPlaying: true, lastUpdatedAt: new Date() },
+        create: { roomId: Number(key), isPlaying: true, currentTimeSeconds: state.currentTimeSeconds }
+      }).catch(() => {});
+    }
+  }
+}, 30 * 1000);
 setInterval(async () => {
   try {
     const { Pool } = require('pg');
