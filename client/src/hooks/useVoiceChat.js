@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
 ];
 
 export default function useVoiceChat({ socket, isSeated }) {
@@ -13,96 +14,135 @@ export default function useVoiceChat({ socket, isSeated }) {
   const localStreamRef = useRef(null);
   const peersRef = useRef({});
   const audioElemsRef = useRef({});
-  const analyserTimerRef = useRef(null);
-  const speakingRef = useRef({});
 
-  const cleanupPeer = (socketId) => {
+  const cleanupPeer = useCallback((socketId) => {
     if (peersRef.current[socketId]) {
-      peersRef.current[socketId].close();
+      try { peersRef.current[socketId].close(); } catch {}
       delete peersRef.current[socketId];
     }
     if (audioElemsRef.current[socketId]) {
-      audioElemsRef.current[socketId].pause();
-      audioElemsRef.current[socketId].srcObject = null;
+      try {
+        audioElemsRef.current[socketId].pause();
+        audioElemsRef.current[socketId].srcObject = null;
+        document.body.removeChild(audioElemsRef.current[socketId]);
+      } catch {}
       delete audioElemsRef.current[socketId];
     }
-  };
+  }, []);
 
-  const cleanupAll = () => {
-    Object.keys(peersRef.current).forEach(cleanupPeer);
+  const cleanupAll = useCallback(() => {
+    Object.keys(peersRef.current).forEach(id => cleanupPeer(id));
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
     }
-    if (analyserTimerRef.current) {
-      clearInterval(analyserTimerRef.current);
-      analyserTimerRef.current = null;
-    }
     setSpeakingUsers([]);
-  };
+  }, [cleanupPeer]);
 
+  // Acquire mic when seated
   useEffect(() => {
     if (!isSeated) {
       cleanupAll();
       return;
     }
     let cancelled = false;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
       .then(stream => {
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         localStreamRef.current = stream;
-        stream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+        // If peer connections already exist (late mic init), add tracks now
+        Object.entries(peersRef.current).forEach(([, pc]) => {
+          stream.getTracks().forEach(track => {
+            try { pc.addTrack(track, stream); } catch {}
+          });
+        });
         setMicError(null);
       })
-      .catch(err => {
+      .catch(() => {
         if (!cancelled) setMicError('Mikrofon erişimi reddedildi');
       });
-    return () => {
-      cancelled = true;
-      cleanupAll();
-    };
-  }, [isSeated]);
+    return () => { cancelled = true; };
+  }, [isSeated, cleanupAll]);
 
+  // Mute toggle
   useEffect(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
     }
   }, [isMuted]);
 
+  const playRemoteAudio = (socketId, stream) => {
+    let audio = audioElemsRef.current[socketId];
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', '');
+      document.body.appendChild(audio);
+      audioElemsRef.current[socketId] = audio;
+    }
+    audio.srcObject = stream;
+    const playPromise = audio.play();
+    if (playPromise) playPromise.catch(() => {
+      // Retry on user interaction
+      const retry = () => { audio.play().catch(() => {}); document.removeEventListener('click', retry); };
+      document.addEventListener('click', retry);
+    });
+  };
+
   const createPeer = useCallback((targetSocketId, isInitiator) => {
     cleanupPeer(targetSocketId);
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 10 });
     peersRef.current[targetSocketId] = pc;
 
+    // Add local tracks if stream ready
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current));
     }
 
     pc.onicecandidate = ({ candidate }) => {
-      if (candidate) socket?.emit('webrtc_ice', { targetSocketId, candidate });
+      if (candidate && socket) {
+        socket.emit('webrtc_ice', { targetSocketId, candidate });
+      }
     };
 
     pc.ontrack = ({ streams }) => {
-      if (!streams[0]) return;
-      let audio = audioElemsRef.current[targetSocketId];
-      if (!audio) {
-        audio = new window.Audio();
-        audio.autoplay = true;
-        audioElemsRef.current[targetSocketId] = audio;
+      const stream = streams && streams[0];
+      if (stream) playRemoteAudio(targetSocketId, stream);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') {
+        // Attempt ICE restart
+        if (isInitiator && socket) {
+          pc.restartIce();
+          pc.createOffer({ iceRestart: true, offerToReceiveAudio: true })
+            .then(offer => { pc.setLocalDescription(offer); socket.emit('webrtc_offer', { targetSocketId, offer }); })
+            .catch(() => {});
+        }
       }
-      audio.srcObject = streams[0];
-      audio.play().catch(() => {});
     };
 
     if (isInitiator) {
-      pc.createOffer()
-        .then(offer => { pc.setLocalDescription(offer); socket?.emit('webrtc_offer', { targetSocketId, offer }); })
+      pc.createOffer({ offerToReceiveAudio: true })
+        .then(offer => {
+          pc.setLocalDescription(offer);
+          if (socket) socket.emit('webrtc_offer', { targetSocketId, offer });
+        })
         .catch(() => {});
     }
 
     return pc;
-  }, [socket]);
+  }, [socket, cleanupPeer]);
 
+  // Socket event handlers
   useEffect(() => {
     if (!socket) return;
 
@@ -127,12 +167,12 @@ export default function useVoiceChat({ socket, isSeated }) {
 
     const handleIce = async ({ fromSocketId, candidate }) => {
       const pc = peersRef.current[fromSocketId];
-      if (pc && candidate) { try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {} }
+      if (pc && candidate) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
+      }
     };
 
-    const handlePeerLeft = ({ socketId }) => {
-      cleanupPeer(socketId);
-    };
+    const handlePeerLeft = ({ socketId }) => cleanupPeer(socketId);
 
     socket.on('webrtc_new_peer', handleNewPeer);
     socket.on('webrtc_offer', handleOffer);
@@ -147,7 +187,16 @@ export default function useVoiceChat({ socket, isSeated }) {
       socket.off('webrtc_ice', handleIce);
       socket.off('webrtc_peer_left', handlePeerLeft);
     };
-  }, [socket, createPeer]);
+  }, [socket, createPeer, cleanupPeer]);
+
+  // Cleanup all audio elements on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(audioElemsRef.current).forEach(a => {
+        try { a.pause(); a.srcObject = null; document.body.removeChild(a); } catch {}
+      });
+    };
+  }, []);
 
   const toggleMute = useCallback(() => setIsMuted(m => !m), []);
 
