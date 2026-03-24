@@ -213,23 +213,20 @@ export default function RoomPage() {
 
     socket.on('room_state', (state) => {
       setRoomState(prev => ({ ...prev, ...state }));
-      if (!state.hostConnected && !isOwner) setHostDisconnected(true);
-      else if (state.hostConnected) setHostDisconnected(false);
+      if (state.hostConnected) setHostDisconnected(false);
       if (state.isModerator) setIsModerator(true);
     });
 
     socket.on('host_changed', ({ hostConnected, currentTimeSeconds }) => {
-      if (!hostConnected) {
-        setHostDisconnected(true);
+      if (hostConnected) {
+        setHostDisconnected(false);
         setRoomState(prev => ({
           ...prev,
-          hostConnected: false,
+          hostConnected: true,
           ...(currentTimeSeconds !== undefined ? { currentTimeSeconds } : {}),
         }));
-      } else {
-        setHostDisconnected(false);
-        setRoomState(prev => ({ ...prev, hostConnected: true }));
       }
+      // hostConnected: false artık gösterilmiyor — bot devralıyor
     });
 
     socket.on('room_settings_changed', (settings) => {
@@ -491,13 +488,6 @@ export default function RoomPage() {
 
           {/* Video container – aspect-ratio on mobile, fills column on desktop */}
           <div className="relative w-full aspect-video md:aspect-auto md:flex-1 md:min-h-0">
-            {hostDisconnected && !canControl && (
-              <div className="absolute top-2 left-2 right-2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg pointer-events-none"
-                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
-                <span className="text-sm">📡</span>
-                <p className="text-xs text-gray-300">Host çevrimdışı — video bağımsız devam ediyor</p>
-              </div>
-            )}
             <div className="absolute inset-0">
               {unlocked && (
                 <VideoPlayer
